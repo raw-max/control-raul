@@ -835,14 +835,22 @@ function updateNetoPreview(){
   var comPct=comTipo==='pct'?comVal:(monto>0?comVal/monto*100:0);
   var descTipo=(document.getElementById('desc-proc-tipo')||{}).value||'pct';
   var descVal=parseFloat((document.getElementById('desc-procesador')||{}).value)||0;
-  var descMonto=descTipo==='pct'?((monto-comMonto)*descVal/100):descVal;
-  var neto=monto-comMonto-descMonto;
+  // Procesador cobra sobre el monto bruto del cliente
+  var descMonto=descTipo==='pct'?(monto*descVal/100):descVal;
+  var neto=monto-descMonto; // neto en cuenta = bruto - procesador
   var sym=CUR_SYM[moneda]||moneda+' ';
   var fmtM=function(v){return sym+Math.abs(v).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var html='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--text2)">Monto bruto</span><span>'+fmtM(monto)+'</span></div>';
-  if(comMonto>0)html+='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--text2)">- Comisión OTA ('+comPct.toFixed(1)+'%)</span><span style="color:var(--red)">-'+fmtM(comMonto)+'</span></div>';
-  if(descMonto>0)html+='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--text2)">- Procesador pagos</span><span style="color:var(--red)">-'+fmtM(descMonto)+'</span></div>';
-  html+='<div style="display:flex;justify-content:space-between;padding:5px 0 2px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700"><span>Neto estimado</span><span style="color:var(--green)">'+fmtM(neto)+'</span></div>';
+  var platVal=(document.getElementById('plataforma')||{}).value||'';
+  var cobraPlat2=['Airbnb','VRBO'].includes(platVal);
+  if(cobraPlat2){
+    if(comMonto>0)html+='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--text2)">- Comisión '+platVal+' ('+comPct.toFixed(1)+'%) — descuentan al abonarte</span><span style="color:var(--red)">-'+fmtM(comMonto)+'</span></div>';
+    html+='<div style="display:flex;justify-content:space-between;padding:5px 0 2px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700"><span>Neto que te abona '+platVal+'</span><span style="color:var(--green)">'+fmtM(monto-comMonto)+'</span></div>';
+  } else {
+    if(descMonto>0)html+='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--text2)">- Procesador de pagos ('+descVal+'% sobre bruto)</span><span style="color:var(--red)">-'+fmtM(descMonto)+'</span></div>';
+    html+='<div style="display:flex;justify-content:space-between;padding:5px 0 2px;margin-top:4px;border-top:1px solid var(--border);font-size:13px;font-weight:700"><span>Neto que llega a tu cuenta</span><span style="color:var(--green)">'+fmtM(neto)+'</span></div>';
+    if(comMonto>0)html+='<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px"><span style="color:var(--amber)">⚠ Comisión '+platVal+' a pagar por factura ('+comPct.toFixed(1)+'%)</span><span style="color:var(--amber)">-'+fmtM(comMonto)+'</span></div>';
+  }
   document.getElementById('neto-preview-content').innerHTML=html;
   document.getElementById('neto-preview').style.display='block';
 }
@@ -938,20 +946,23 @@ function calcComisionOTA(tx){
   return tx.comisionTipo==='monto'?(parseFloat(tx.comisionMonto)||0):(bruto*(parseFloat(tx.comision)||0)/100);
 }
 function calcDescProcesador(tx){
+  // El procesador cobra sobre el monto bruto que paga el cliente
   var bruto=tx.montoPEN||tx.monto||0;
   if(!tx.descProcesador)return 0;
   return bruto*(parseFloat(tx.descProcesador)||0)/100;
 }
 function calcNetoEnCuenta(tx){
   // Lo que llega fisicamente a tu cuenta bancaria:
-  // Airbnb/VRBO: bruto - comision OTA (ellos la descuentan antes de abonarte)
-  // Booking/Expedia/Directo: bruto - descuento procesador (comision OTA se paga aparte por factura)
+  // Airbnb/VRBO: bruto - comision OTA (ellos descuentan y te abonan el neto)
+  // Booking/Expedia/Directo: bruto - descuento procesador sobre bruto
+  //   (la comision OTA se paga aparte por factura mensual)
   var bruto=tx.montoPEN||tx.monto||0;
   var plat=tx.plataforma||'';
   var cobraPlat=['Airbnb','VRBO'].includes(plat);
   if(cobraPlat){
     return bruto-calcComisionOTA(tx);
   } else {
+    // Procesador cobra % sobre el monto bruto del cliente, no sobre el neto
     return bruto-calcDescProcesador(tx);
   }
 }
