@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Control RAW">
+<title>Control Financiero RAW</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--bg3:#1c1c1c;
+  --text:#f0f0f0;--text2:#a0a0a0;--text3:#555;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --green:#1D9E75;--red:#E24B4A;--blue:#378ADD;--amber:#BA7517;--purple:#7F77DD;
+  --r:12px;--rs:8px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;min-height:100vh;overflow-x:hidden}
+.safe-top{height:env(safe-area-inset-top,20px);background:var(--bg)}
+.header{padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between}
+.header-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.header-title span{color:var(--green)}
+.header-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.fx-badge{background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--text2);white-space:nowrap}
+.tab-bar{display:flex;gap:5px;padding:14px 20px 0;overflow-x:auto;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab{padding:7px 15px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s}
+.tab.active{background:var(--green);color:#fff;border-color:transparent}
+.content{padding:18px 20px 60px}
+.section{display:none}.section.active{display:block}
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px 15px}
+.metric-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.metric-value{font-size:20px;font-weight:700;letter-spacing:-.5px;line-height:1}
+.metric-value.pos{color:var(--green)}.metric-value.neg{color:var(--red)}.metric-value.warn{color:var(--amber)}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:13px}
+.card-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:13px}
+.form-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;display:block}
+.form-row{margin-bottom:11px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px}
+select,input[type=text],input[type=number],input[type=date]{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);color:var(--text);font-size:14px;padding:11px 13px;-webkit-appearance:none;appearance:none;font-family:inherit;outline:none}
+select:focus,input:focus{border-color:var(--green)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
+.btn-main{width:100%;padding:14px;background:var(--green);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s}
+.btn-main:active{transform:scale(.98);opacity:.9}
+.btn-main:disabled{opacity:.4}
+.btn-sec{width:100%;padding:11px;background:var(--bg3);color:var(--text2);border:1px solid var(--border2);border-radius:var(--rs);font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px}
+.status-bar{display:flex;align-items:center;gap:8px;padding:11px 14px;border-radius:var(--rs);font-size:13px;font-weight:500;margin-bottom:13px}
+.s-ok{background:rgba(29,158,117,.15);color:var(--green);border:1px solid rgba(29,158,117,.3)}
+.s-err{background:rgba(226,75,74,.15);color:var(--red);border:1px solid rgba(226,75,74,.3)}
+.s-loading{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.tx-item{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--border)}
+.tx-item:last-child{border-bottom:none}
+.tx-icon{width:36px;height:36px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.tx-info{flex:1;min-width:0}
+.tx-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-cat{font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-right{text-align:right;flex-shrink:0}
+.tx-amount{font-size:14px;font-weight:600}
+.tx-amount.neg{color:var(--red)}.tx-amount.pos{color:var(--green)}
+.tx-orig{font-size:10px;color:var(--text3);margin-top:2px}
+.tx-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;border:1px solid var(--border);cursor:pointer;flex-shrink:0}
+.progress-row{margin-bottom:12px}
+.progress-meta{display:flex;justify-content:space-between;margin-bottom:5px}
+.progress-name{font-size:12px;color:var(--text2)}
+.progress-vals{font-size:12px;color:var(--text3)}
+.progress-track{height:4px;background:var(--bg3);border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;border-radius:10px;transition:width .5s ease}
+.exec-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.exec-row:last-child{border-bottom:none}
+.exec-label{font-size:13px;color:var(--text2)}
+.exec-val{font-size:13px;font-weight:600;color:var(--text);text-align:right}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
+.b-warn{background:rgba(186,117,23,.2);color:var(--amber)}
+.b-ok{background:rgba(29,158,117,.2);color:var(--green)}
+.b-blue{background:rgba(55,138,221,.2);color:var(--blue)}
+.b-purple{background:rgba(127,119,221,.2);color:var(--purple)}
+.empty-state{text-align:center;padding:22px 0;color:var(--text3);font-size:13px}
+.receipt-btn{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);cursor:pointer;font-size:13px;color:var(--text2);width:100%;margin-bottom:11px;font-family:inherit}
+.receipt-preview-img{width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--border2);margin-bottom:11px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-img{max-width:100%;max-height:80vh;border-radius:var(--r);object-fit:contain}
+.modal-close{position:fixed;top:20px;right:20px;background:var(--bg3);border:1px solid var(--border2);border-radius:50%;width:36px;height:36px;color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1001}
+.cur-toggle{display:flex;gap:6px;margin-bottom:14px}
+.period-bar{display:flex;gap:5px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.period-bar::-webkit-scrollbar{display:none}
+.period-btn{padding:6px 13px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s}
+.period-btn.active{background:var(--bg3);color:var(--text);border-color:var(--green)}
+.period-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.period-nav-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.period-label{flex:1;text-align:center;font-size:13px;font-weight:500;color:var(--text)}
+.cur-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s}
+.cur-btn.active{background:var(--bg3);color:var(--text);border-color:var(--green)}
+.hint{font-size:11px;color:var(--text3);padding:8px 12px;background:var(--bg3);border-radius:var(--rs);margin-bottom:11px;line-height:1.5}
+.res-item{padding:13px 0;border-bottom:1px solid var(--border)}
+.res-item:last-child{border-bottom:none}
+.adv-item{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+.adv-item:last-child{border-bottom:none}
+.new-row{display:flex;gap:8px;margin-top:8px}
+.new-row input{flex:1}
+.new-row button{padding:0 14px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap;min-height:44px}
+.cat-hint{font-size:10px;color:var(--green);margin-top:5px}
+.comp-table{width:100%;border-collapse:collapse;margin-top:4px}
+.comp-table th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:6px 4px;text-align:left;border-bottom:1px solid var(--border);font-weight:600}
+.comp-table th:not(:first-child){text-align:right}
+.comp-table td{font-size:12px;padding:9px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table .kpi-name{color:var(--text2);font-size:12px}
+.comp-table .kpi-cur{color:var(--text);font-weight:600;text-align:right}
+.comp-table .kpi-prev{color:var(--text3);text-align:right}
+.comp-table .kpi-var{text-align:right;font-weight:600;font-size:12px;white-space:nowrap}
+.var-pos{color:var(--green)}.var-neg{color:var(--red)}.var-neu{color:var(--text3)}
+.comp-period-labels{display:flex;justify-content:space-between;margin-bottom:8px}
+.comp-period-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="safe-top"></div>
+<div class="header">
+  <div>
+    <div class="header-title">Control <span>RAW</span></div>
+    <div class="header-sub" id="fx-status">Cargando tipos de cambio…</div>
+  </div>
+  <div class="fx-badge" id="fx-badge">PEN ⇄ USD</div>
+</div>
+
+<div class="tab-bar" id="tab-bar">
+  <button class="tab active" onclick="switchTab('registrar')">+ Registrar</button>
+  <button class="tab" onclick="switchTab('resumen')">Resumen</button>
+  <button class="tab" onclick="switchTab('reservas')">Reservas</button>
+  <button class="tab" onclick="switchTab('adelantos')">Adelantos</button>
+  <button class="tab" onclick="switchTab('inkahuset')">INKAHUSET</button>
+  <button class="tab" onclick="switchTab('skandean')">SKANDEAN</button>
+  <button class="tab" onclick="switchTab('personal')">Personal</button>
+  <button class="tab" onclick="switchTab('config')">⚙ Config</button>
+</div>
+
+<div class="content">
+
+<!-- REGISTRAR -->
+<div id="sec-registrar" class="section active">
+  <div id="status-bar" style="display:none" class="status-bar s-ok">
+    <span id="s-icon">✓</span><span id="s-msg">Guardado</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Nueva transacción</div>
+    <div class="form-row">
+      <label class="form-label">Tipo</label>
+      <select id="tipo" onchange="onTipoChange()">
+        <option value="Gasto">Gasto</option>
+        <option value="Ingreso">Ingreso</option>
+        <option value="Reserva">Reserva (Airbnb / VRBO / Booking / Expedia / Directo)</option>
+        <option value="Adelanto">Adelanto a INKAHUSET (de mi bolsillo)</option>
+        <option value="ReembolsoAdel">Reembolso de adelanto recibido</option>
+        <option value="Prestamo">Préstamo a persona</option>
+        <option value="CobroPrest">Cobro de préstamo</option>
+      </select>
+    </div>
+    <div class="form-row" id="cuenta-row">
+      <label class="form-label">Cuenta</label>
+      <select id="cuenta"></select>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label class="form-label">Monto</label>
+        <input type="number" id="monto" placeholder="0.00" step="0.01" min="0" inputmode="decimal" oninput="updateConversion()">
+      </div>
+      <div>
+        <label class="form-label">Moneda</label>
+        <select id="moneda" onchange="updateConversion()">
+          <option value="PEN">PEN — Sol peruano</option>
+          <option value="USD">USD — Dólar americano</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="NOK">NOK — Corona noruega</option>
+          <option value="SEK">SEK — Corona sueca</option>
+          <option value="DKK">DKK — Corona danesa</option>
+          <option value="JPY">JPY — Yen japonés</option>
+          <option value="CNY">CNY — Yuan chino</option>
+          <option value="KRW">KRW — Won coreano</option>
+          <option value="GBP">GBP — Libra esterlina</option>
+          <option value="CHF">CHF — Franco suizo</option>
+          <option value="ARS">ARS — Peso argentino</option>
+          <option value="CLP">CLP — Peso chileno</option>
+          <option value="COP">COP — Peso colombiano</option>
+          <option value="MXN">MXN — Peso mexicano</option>
+          <option value="BRL">BRL — Real brasileño</option>
+        </select>
+      </div>
+    </div>
+    <div id="conv-preview" style="display:none;font-size:11px;color:var(--text3);margin-bottom:11px;padding:8px 12px;background:var(--bg3);border-radius:var(--rs)"></div>
+    <div class="form-row">
+      <label class="form-label">Fecha</label>
+      <input type="date" id="fecha">
+    </div>
+
+    <!-- CATEGORIA -->
+    <div id="cat-row" class="form-row">
+      <label class="form-label">Categoría</label>
+      <select id="categoria" onchange="onCatChange()"></select>
+    </div>
+    <div id="cat-custom-row" style="display:none" class="form-row">
+      <label class="form-label">Nombre de la nueva categoría</label>
+      <input type="text" id="cat-custom" placeholder="Ej: Equipamiento trail, Visa, Regalos">
+      <div class="cat-hint">✓ Quedará guardada permanentemente en tu lista</div>
+    </div>
+
+    <!-- DESC -->
+    <div id="desc-row" class="form-row">
+      <label class="form-label">Descripción</label>
+      <input type="text" id="descripcion" placeholder="Ej: Limpieza habitación 1">
+    </div>
+
+    <!-- RESERVA -->
+    <div id="reserva-extra" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Nombre del huésped</label>
+        <input type="text" id="huesped" placeholder="Nombre completo">
+      </div>
+      <div class="form-grid">
+        <div>
+          <label class="form-label">Plataforma</label>
+          <select id="plataforma" onchange="onPlataformaChange()">
+            <option value="Airbnb">Airbnb</option>
+            <option value="VRBO">VRBO</option>
+            <option value="Booking">Booking</option>
+            <option value="Expedia">Expedia</option>
+            <option value="Directo">Directo</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Comisión plataforma %</label>
+          <input type="number" id="comision" placeholder="Ej: 14" step="0.1" min="0" max="100" inputmode="decimal">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Unidad</label>
+        <select id="unidad">
+          <optgroup label="Departamentos enteros">
+            <option value="308">Dpto 308</option>
+            <option value="309">Dpto 309</option>
+            <option value="404">Dpto 404</option>
+            <option value="406">Dpto 406</option>
+            <option value="409">Dpto 409</option>
+            <option value="509">Dpto 509</option>
+            <option value="803">Dpto 803</option>
+            <option value="902">Dpto 902</option>
+            <option value="1202">Dpto 1202</option>
+          </optgroup>
+          <optgroup label="PAC — habitaciones">
+            <option value="PAC-1">PAC Hab 1</option>
+            <option value="PAC-2">PAC Hab 2</option>
+            <option value="PAC-3">PAC Hab 3</option>
+          </optgroup>
+          <optgroup label="JCH — habitaciones">
+            <option value="JCH-1">JCH Hab 1</option>
+            <option value="JCH-2">JCH Hab 2</option>
+            <option value="JCH-3">JCH Hab 3</option>
+            <option value="JCH-4">JCH Hab 4</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-grid">
+        <div><label class="form-label">Check-in</label><input type="date" id="checkin"></div>
+        <div><label class="form-label">Check-out</label><input type="date" id="checkout"></div>
+      </div>
+      <div id="cobro-plataforma" style="display:none">
+        <div class="hint">⏳ Airbnb / VRBO cobran al huésped y te abonan después. Toca el estado en "Reservas" para marcarlo como recibido.</div>
+      </div>
+      <div id="cobro-directo" style="display:none">
+        <div class="hint">💳 Tú cobras directamente. Selecciona el método y el descuento del procesador de pagos.</div>
+        <div class="form-row">
+          <label class="form-label">Método de cobro</label>
+          <select id="metodo-cobro">
+            <option value="Tarjeta">Tarjeta crédito/débito</option>
+            <option value="PayPal">PayPal (USD)</option>
+            <option value="Efectivo">Efectivo</option>
+            <option value="Transferencia">Transferencia bancaria</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Descuento procesador de pagos %</label>
+          <input type="number" id="desc-procesador" placeholder="Ej: 2.9" step="0.1" min="0" max="20" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <!-- LINEA SKANDEAN -->
+    <div id="linea-row" style="display:none" class="form-row">
+      <label class="form-label">Línea de producto</label>
+      <select id="linea-skandean">
+        <option value="Home">Home</option>
+        <option value="Ropa Outdoor">Ropa Outdoor</option>
+        <option value="Upcycling">Upcycling</option>
+        <option value="General">General / sin línea</option>
+      </select>
+    </div>
+
+    <!-- ADELANTO -->
+    <div id="adelanto-extra" style="display:none">
+      <div class="form-row">
+        <label class="form-label">¿Qué pagué para INKAHUSET?</label>
+        <input type="text" id="adel-desc" placeholder="Ej: Suministros limpieza, plomero">
+      </div>
+    </div>
+
+    <!-- PRESTAMO -->
+    <div id="prestamo-extra" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Nombre de la persona</label>
+        <input type="text" id="persona" placeholder="Nombre completo">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Motivo</label>
+        <input type="text" id="motivo" placeholder="Ej: gastos personales">
+      </div>
+    </div>
+
+    <!-- RECIBO -->
+    <button class="receipt-btn" onclick="document.getElementById('receipt-input').click()">
+      <span id="receipt-icon">📎</span>
+      <span id="receipt-label">Adjuntar foto del recibo (opcional)</span>
+    </button>
+    <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display:none" onchange="handleReceipt(this)">
+    <img id="receipt-preview" class="receipt-preview-img" style="display:none" alt="recibo">
+
+    <button class="btn-main" id="btn-guardar" onclick="guardar()">Guardar en Google Sheets</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Últimos registros</div>
+    <div id="local-tx"><div class="empty-state">Los registros aparecerán aquí</div></div>
+  </div>
+</div>
+
+<!-- RESUMEN -->
+<div id="sec-resumen" class="section">
+  <div class="period-bar">
+    <button class="period-btn active" onclick="setPeriod('mes')">Este mes</button>
+    <button class="period-btn" onclick="setPeriod('mes-ant')">Mes anterior</button>
+    <button class="period-btn" onclick="setPeriod('trim')">Trimestre</button>
+    <button class="period-btn" onclick="setPeriod('trim-ant')">Trim. anterior</button>
+    <button class="period-btn" onclick="setPeriod('anio')">Este año</button>
+    <button class="period-btn" onclick="setPeriod('todo')">Todo</button>
+  </div>
+  <div class="period-nav">
+    <button class="period-nav-btn" onclick="shiftPeriod(-1)">‹</button>
+    <div class="period-label" id="period-label">Mayo 2026</div>
+    <button class="period-nav-btn" onclick="shiftPeriod(1)">›</button>
+  </div>
+  <div class="cur-toggle">
+    <button class="cur-btn active" id="r-cur-pen" onclick="setCur('r','PEN')">PEN</button>
+    <button class="cur-btn" id="r-cur-usd" onclick="setCur('r','USD')">USD</button>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Ingresos totales</div><div class="metric-value pos" id="r-ing">—</div><div class="metric-sub">Este mes</div></div>
+    <div class="metric-card"><div class="metric-label">Egresos totales</div><div class="metric-value neg" id="r-gas">—</div><div class="metric-sub">Este mes</div></div>
+    <div class="metric-card"><div class="metric-label">Flujo neto</div><div class="metric-value" id="r-neto">—</div><div class="metric-sub" id="r-neto-lbl">—</div></div>
+    <div class="metric-card"><div class="metric-label">Transacciones</div><div class="metric-value" id="r-count">0</div><div class="metric-sub">Este mes</div></div>
+  </div>
+  <div class="card"><div class="card-title">Por cuenta</div><div id="r-cuentas"><div class="empty-state">Sin datos</div></div></div>
+  <div class="card">
+    <div class="card-title">Comparativo vs período anterior</div>
+    <div class="comp-period-labels"><span class="comp-period-label" id="r-comp-cur-lbl">Actual</span><span class="comp-period-label" id="r-comp-prev-lbl">Anterior</span></div>
+    <div id="r-comparativo"><div class="empty-state">Sin datos suficientes</div></div>
+  </div>
+  <div class="card"><div class="card-title">Gastos por categoría</div><div id="r-cats"><div class="empty-state">Sin gastos</div></div></div>
+</div>
+
+<!-- RESERVAS -->
+<div id="sec-reservas" class="section">
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Recibido en cuenta</div><div class="metric-value pos" id="res-cobrado">S/ 0</div><div class="metric-sub">Neto</div></div>
+    <div class="metric-card"><div class="metric-label">Pendiente</div><div class="metric-value warn" id="res-pendiente">S/ 0</div><div class="metric-sub">Por recibir</div></div>
+    <div class="metric-card"><div class="metric-label">Reservas mes</div><div class="metric-value" id="res-total">0</div><div class="metric-sub">Este mes</div></div>
+    <div class="metric-card"><div class="metric-label">Comisiones</div><div class="metric-value neg" id="res-comisiones">S/ 0</div><div class="metric-sub">Plataformas</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Seguimiento — toca el estado para avanzar</div>
+    <div id="res-lista"><div class="empty-state">Registra reservas en "+ Registrar"</div></div>
+  </div>
+</div>
+
+<!-- ADELANTOS -->
+<div id="sec-adelantos" class="section">
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">INKAHUSET te debe</div><div class="metric-value warn" id="adv-pendiente">S/ 0</div><div class="metric-sub">Pendiente</div></div>
+    <div class="metric-card"><div class="metric-label">Total adelantado</div><div class="metric-value" id="adv-total">S/ 0</div><div class="metric-sub">Histórico</div></div>
+  </div>
+  <div class="card"><div class="card-title">Pendientes de reembolso</div><div id="adv-lista"><div class="empty-state">Sin adelantos</div></div></div>
+  <div class="card"><div class="card-title">Reembolsos recibidos</div><div id="adv-cobrados"><div class="empty-state">Sin reembolsos</div></div></div>
+</div>
+
+<!-- INKAHUSET -->
+<div id="sec-inkahuset" class="section">
+  <div class="cur-toggle">
+    <button class="cur-btn active" id="ink-cur-pen" onclick="setCur('ink','PEN')">PEN</button>
+    <button class="cur-btn" id="ink-cur-usd" onclick="setCur('ink','USD')">USD</button>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Ingresos brutos</div><div class="metric-value pos" id="ink-ing">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Gastos operativos</div><div class="metric-value neg" id="ink-gas">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Utilidad neta</div><div class="metric-value" id="ink-util">—</div><div class="metric-sub" id="ink-margen">Margen 0%</div></div>
+    <div class="metric-card"><div class="metric-label">Reservas</div><div class="metric-value" id="ink-res">0</div><div class="metric-sub">Período</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">KPIs de alojamiento</div>
+    <div class="exec-row"><span class="exec-label">RevPAR (ingreso / noche disp.)</span><span class="exec-val" id="ink-revpar">—</span></div>
+    <div class="exec-row"><span class="exec-label">Tasa de ocupación</span><span class="exec-val" id="ink-ocup">—</span></div>
+    <div class="exec-row"><span class="exec-label">Ingreso promedio por reserva</span><span class="exec-val" id="ink-avg-res">—</span></div>
+    <div class="exec-row"><span class="exec-label">Comisiones plataformas</span><span class="exec-val neg" id="ink-com-total">—</span></div>
+    <div class="exec-row"><span class="exec-label">Comisiones % del ingreso</span><span class="exec-val" id="ink-com-pct">—</span></div>
+    <div class="exec-row"><span class="exec-label">Adelantos pendientes</span><span class="exec-val warn" id="ink-adel">—</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Ingresos por unidad</div>
+    <div id="ink-por-unidad"><div class="empty-state">Sin reservas registradas</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Comparativo vs período anterior</div>
+    <div class="comp-period-labels"><span class="comp-period-label" id="ink-comp-cur-lbl">Actual</span><span class="comp-period-label" id="ink-comp-prev-lbl">Anterior</span></div>
+    <div id="ink-comparativo"><div class="empty-state">Sin datos suficientes</div></div>
+  </div>
+  <div class="card"><div class="card-title">Transacciones</div><div id="ink-tx"><div class="empty-state">Sin registros</div></div></div>
+</div>
+
+<!-- SKANDEAN -->
+<div id="sec-skandean" class="section">
+  <div class="cur-toggle">
+    <button class="cur-btn active" id="sk-cur-pen" onclick="setCur('sk','PEN')">PEN</button>
+    <button class="cur-btn" id="sk-cur-usd" onclick="setCur('sk','USD')">USD</button>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Ingresos</div><div class="metric-value pos" id="sk-ing">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Gastos</div><div class="metric-value neg" id="sk-gas">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Utilidad neta</div><div class="metric-value" id="sk-util">—</div><div class="metric-sub" id="sk-margen">Margen 0%</div></div>
+    <div class="metric-card"><div class="metric-label">Burn rate</div><div class="metric-value warn" id="sk-burn">—</div><div class="metric-sub">/ mes</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">KPIs de negocio</div>
+    <div class="exec-row"><span class="exec-label">Margen bruto %</span><span class="exec-val" id="sk-margen-bruto">—</span></div>
+    <div class="exec-row"><span class="exec-label">Ingreso promedio por venta</span><span class="exec-val" id="sk-avg-venta">—</span></div>
+    <div class="exec-row"><span class="exec-label">Runway estimado</span><span class="exec-val" id="sk-runway">—</span></div>
+    <div class="exec-row"><span class="exec-label">ROI del período</span><span class="exec-val" id="sk-roi">—</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Por línea de producto</div>
+    <div id="sk-por-linea"><div class="empty-state">Sin ventas registradas</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Comparativo vs período anterior</div>
+    <div class="comp-period-labels"><span class="comp-period-label" id="sk-comp-cur-lbl">Actual</span><span class="comp-period-label" id="sk-comp-prev-lbl">Anterior</span></div>
+    <div id="sk-comparativo"><div class="empty-state">Sin datos suficientes</div></div>
+  </div>
+  <div class="card"><div class="card-title">Transacciones</div><div id="sk-tx"><div class="empty-state">Sin registros</div></div></div>
+</div>
+
+<!-- PERSONAL -->
+<div id="sec-personal" class="section">
+  <div class="cur-toggle">
+    <button class="cur-btn active" id="per-cur-pen" onclick="setCur('per','PEN')">PEN</button>
+    <button class="cur-btn" id="per-cur-usd" onclick="setCur('per','USD')">USD</button>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Ingresos</div><div class="metric-value pos" id="per-ing">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Gastos</div><div class="metric-value neg" id="per-gas">—</div><div class="metric-sub">Período</div></div>
+    <div class="metric-card"><div class="metric-label">Tasa de ahorro</div><div class="metric-value pos" id="per-ahorro">—</div><div class="metric-sub">Del ingreso</div></div>
+    <div class="metric-card"><div class="metric-label">Gasto diario prom.</div><div class="metric-value" id="per-daily">—</div><div class="metric-sub">Por día</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">KPIs personales</div>
+    <div class="exec-row"><span class="exec-label">Mayor categoría de gasto</span><span class="exec-val" id="per-top-cat">—</span></div>
+    <div class="exec-row"><span class="exec-label">Flujo neto del período</span><span class="exec-val" id="per-neto">—</span></div>
+    <div class="exec-row"><span class="exec-label">Proyección fin de mes</span><span class="exec-val" id="per-proyeccion">—</span></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Comparativo vs período anterior</div>
+    <div class="comp-period-labels"><span class="comp-period-label" id="per-comp-cur-lbl">Actual</span><span class="comp-period-label" id="per-comp-prev-lbl">Anterior</span></div>
+    <div id="per-comparativo"><div class="empty-state">Sin datos suficientes</div></div>
+  </div>
+  <div class="card"><div class="card-title">Por categoría</div><div id="per-cats"><div class="empty-state">Sin gastos</div></div></div>
+  <div class="card"><div class="card-title">Transacciones</div><div id="per-tx"><div class="empty-state">Sin registros</div></div></div>
+</div>
+
+<!-- CONFIG -->
+<div id="sec-config" class="section">
+  <div class="card">
+    <div class="card-title">Cuentas / negocios</div>
+    <div id="cfg-cuentas"></div>
+    <div class="new-row">
+      <input type="text" id="nueva-cuenta" placeholder="Nombre del nuevo negocio">
+      <button onclick="addCuenta()">+ Añadir</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Categorías — incluye personalizadas</div>
+    <div id="cfg-cats"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Sistema</div>
+    <div class="exec-row"><span class="exec-label">Transacciones</span><span class="exec-val" id="cfg-tx-n">0</span></div>
+    <div class="exec-row"><span class="exec-label">Recibos</span><span class="exec-val" id="cfg-rec-n">0</span></div>
+    <div class="exec-row"><span class="exec-label">Tipo de cambio</span><span class="exec-val" id="cfg-fx-val">—</span></div>
+    <button class="btn-sec" onclick="if(confirm('¿Borrar TODOS los datos locales? Los datos en Google Sheets no se borran.')){localStorage.clear();location.reload()}">⚠ Borrar datos locales</button>
+  </div>
+</div>
+
+</div>
+
+<div id="img-modal" class="modal-overlay" style="display:none" onclick="closeModal()">
+  <button class="modal-close" onclick="closeModal()">✕</button>
+  <img id="modal-img" class="modal-img" src="" alt="Recibo">
+</div>
+
+<script>
+var SCRIPT_URL='https://script.google.com/macros/s/AKfycbwLjIUOBpUB-BiXGuSlBrnfVAadNt6UYxDMHwpXgJQWqbxoX9gdYSnbbj4yL_GuAJdkvQ/exec';
+var txs=JSON.parse(localStorage.getItem('raw_txs_v3')||'[]');
+var receipts=JSON.parse(localStorage.getItem('raw_receipts')||'{}');
+var FX={};
+var currentReceiptData=null;
+var CUR={r:'PEN',ink:'PEN',sk:'PEN',per:'PEN'};
+var PERIOD='mes';
+var PERIOD_OFFSET=0;
+
+// CUENTAS DINAMICAS
+var DEFAULT_CUENTAS=['Personal','INKAHUSET','SKANDEAN'];
+var cuentas=JSON.parse(localStorage.getItem('raw_cuentas')||JSON.stringify(DEFAULT_CUENTAS));
+
+// CATEGORIAS
+var DEFAULT_CATS=[
+  // Personal
+  'Alimentación','Transporte','Alojamiento viaje','Salud','Deporte / trail',
+  'Suscripciones','Ropa','Equipamiento outdoor','Ocio / salidas','Educación',
+  'Regalos','Visa / trámites','Seguros personales',
+  // INKAHUSET
+  'Limpieza','Suministros huésped','Comisión plataforma','Procesador de pagos',
+  'Mantenimiento','Amenidades','Fotografía propiedad','Publicidad alojamiento',
+  'Seguro propiedad','Impuestos alojamiento','Check-in / Check-out',
+  // SKANDEAN
+  'Costo de mercancía','Envíos','Packaging','Fotografía producto',
+  'Feria / mercado','Proveedor textil','Proveedor outdoor',
+  'Almacén / bodega','Devoluciones','Publicidad digital',
+  // General
+  'Marketing','Operaciones','Herramientas / software','Servicios','Otros'
+];
+var customCats=JSON.parse(localStorage.getItem('raw_custom_cats')||'[]');
+function getAllCats(){return DEFAULT_CATS.concat(customCats.filter(c=>!DEFAULT_CATS.includes(c)));}
+function saveCustomCat(name){
+  if(!name||DEFAULT_CATS.includes(name)||customCats.includes(name))return;
+  customCats.push(name);
+  localStorage.setItem('raw_custom_cats',JSON.stringify(customCats));
+}
+
+var CUR_SYM={PEN:'S/',USD:'$',NOK:'kr',EUR:'€',GBP:'£',ARS:'$',CLP:'$',COP:'$',MXN:'$',BRL:'R$',JPY:'¥',CNY:'¥',KRW:'₩',CHF:'CHF',SEK:'kr',DKK:'kr'};
+var TX_ICO={Gasto:'↑',Ingreso:'↓',Reserva:'⌂',Adelanto:'⟳',ReembolsoAdel:'✓',Prestamo:'$',CobroPrest:'✓'};
+var PLAT_COL={Airbnb:'#FF5A5F',VRBO:'#195DB3',Booking:'#003580',Expedia:'#FFC72C',Directo:'#1D9E75'};
+
+// FX
+async function loadFX(){
+  try{
+    var cached=JSON.parse(localStorage.getItem('raw_fx')||'null'),now=Date.now();
+    if(cached&&cached.ts&&now-cached.ts<3600000){FX=cached.rates;updateFXBadge();return;}
+    var resp=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    var data=await resp.json();
+    if(data&&data.rates){FX=data.rates;localStorage.setItem('raw_fx',JSON.stringify({rates:FX,ts:now}));updateFXBadge();}
+  }catch(e){
+    FX={PEN:3.40,USD:1,NOK:10.8,EUR:0.91,GBP:0.77,ARS:1200,CLP:950,COP:4200,MXN:17.5,BRL:5.9,JPY:155,CNY:7.3,KRW:1380,CHF:0.90,SEK:10.6,DKK:6.8};
+    document.getElementById('fx-status').textContent='Tipo de cambio estimado (sin internet)';
+    updateFXBadge();
+  }
+}
+function updateFXBadge(){
+  document.getElementById('fx-badge').textContent='1 USD = S/'+((FX.PEN||3.73).toFixed(2));
+  document.getElementById('fx-status').textContent='Tipos de cambio actualizados';
+}
+function toUSD(a,c){return a/(FX[c]||1);}
+function toCur(a,f,t){if(f===t)return a;return toUSD(a,f)*(FX[t]||1);}
+function fmt(n,cur){
+  var sym=CUR_SYM[cur]||(cur+' ');
+  var abs=Math.abs(parseFloat(n)||0);
+  if(['JPY','CNY','KRW','CLP','COP','ARS'].includes(cur))return sym+Math.round(abs).toLocaleString('es-PE');
+  return sym+abs.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function updateConversion(){
+  var m=parseFloat(document.getElementById('monto').value)||0;
+  var mon=document.getElementById('moneda').value;
+  var el=document.getElementById('conv-preview');
+  if(!m||mon==='PEN'||!Object.keys(FX).length){el.style.display='none';return;}
+  el.style.display='block';
+  el.textContent='≈ '+fmt(toCur(m,mon,'PEN'),'PEN')+' · '+fmt(toCur(m,mon,'USD'),'USD');
+}
+
+// TABS
+var TAB_NAMES=['registrar','resumen','reservas','adelantos','inkahuset','skandean','personal','config'];
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',TAB_NAMES[i]===name));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  if(name==='config')renderConfig();
+  else if(name!=='registrar')render();
+}
+
+// CURRENCY
+function setCur(sec,c){
+  CUR[sec]=c;
+  document.getElementById(sec+'-cur-pen').className='cur-btn'+(c==='PEN'?' active':'');
+  document.getElementById(sec+'-cur-usd').className='cur-btn'+(c==='USD'?' active':'');
+  render();
+}
+
+// CUENTAS
+function renderCuentaSelect(){
+  var sel=document.getElementById('cuenta'),prev=sel.value;
+  sel.innerHTML=cuentas.map(c=>'<option>'+c+'</option>').join('');
+  if(cuentas.includes(prev))sel.value=prev;
+  sel.onchange=function(){checkLineaRow();};
+}
+function addCuenta(){
+  var name=document.getElementById('nueva-cuenta').value.trim();
+  if(!name){return;}
+  if(cuentas.includes(name)){alert('Ya existe esta cuenta');return;}
+  cuentas.push(name);
+  localStorage.setItem('raw_cuentas',JSON.stringify(cuentas));
+  document.getElementById('nueva-cuenta').value='';
+  renderCuentaSelect();
+  renderConfig();
+  // add tab
+  var bar=document.getElementById('tab-bar');
+  var configBtn=bar.lastElementChild;
+  var btn=document.createElement('button');
+  btn.className='tab';
+  btn.textContent=name;
+  btn.onclick=function(){switchTab('resumen');};
+  TAB_NAMES.splice(TAB_NAMES.length-1,0,name.toLowerCase().replace(/\s/g,'-'));
+  bar.insertBefore(btn,configBtn);
+  alert('Cuenta "'+name+'" añadida. Aparece en Resumen bajo "Por cuenta".');
+}
+
+// CATEGORIAS
+function renderCatSelect(){
+  var sel=document.getElementById('categoria');
+  var cats=getAllCats();
+  sel.innerHTML=cats.map(c=>'<option value="'+c+'">'+c+'</option>').join('')+'<option value="__custom__">+ Añadir nueva categoría…</option>';
+}
+function onCatChange(){
+  var v=document.getElementById('categoria').value;
+  document.getElementById('cat-custom-row').style.display=v==='__custom__'?'block':'none';
+}
+function getCategoria(){
+  var v=document.getElementById('categoria').value;
+  if(v==='__custom__'){
+    var c=document.getElementById('cat-custom').value.trim()||'Otros';
+    saveCustomCat(c);renderCatSelect();
+    return c;
+  }
+  return v;
+}
+
+// TIPO / PLATAFORMA
+function onTipoChange(){
+  var v=document.getElementById('tipo').value;
+  var hide=['Adelanto','ReembolsoAdel','Prestamo','CobroPrest','Reserva'];
+  document.getElementById('reserva-extra').style.display=v==='Reserva'?'block':'none';
+  document.getElementById('adelanto-extra').style.display=v==='Adelanto'?'block':'none';
+  document.getElementById('prestamo-extra').style.display=(v==='Prestamo'||v==='CobroPrest')?'block':'none';
+  document.getElementById('cat-row').style.display=hide.includes(v)?'none':'block';
+  document.getElementById('cat-custom-row').style.display='none';
+  document.getElementById('desc-row').style.display=(v==='Adelanto'||v==='Prestamo'||v==='CobroPrest')?'none':'block';
+  if(v==='Adelanto'||v==='ReembolsoAdel'){
+    document.getElementById('cuenta').value='INKAHUSET';
+    document.getElementById('cuenta-row').style.display='none';
+  } else {
+    document.getElementById('cuenta-row').style.display='block';
+  }
+  if(v==='Reserva')onPlataformaChange();
+  checkLineaRow();
+}
+function checkLineaRow(){
+  var cuenta=document.getElementById('cuenta').value;
+  var tipo=document.getElementById('tipo').value;
+  var show=cuenta==='SKANDEAN'&&(tipo==='Gasto'||tipo==='Ingreso');
+  document.getElementById('linea-row').style.display=show?'block':'none';
+}
+function onPlataformaChange(){
+  var p=document.getElementById('plataforma').value;
+  var directo=['Booking','Expedia','Directo'].includes(p);
+  document.getElementById('cobro-plataforma').style.display=!directo?'block':'none';
+  document.getElementById('cobro-directo').style.display=directo?'block':'none';
+}
+
+// RECIBO
+function handleReceipt(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      var mW=800,mH=800,w=img.width,h=img.height;
+      if(w>h){if(w>mW){h=h*mW/w;w=mW;}}else{if(h>mH){w=w*mH/h;h=mH;}}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      currentReceiptData=canvas.toDataURL('image/jpeg',0.6);
+      var prev=document.getElementById('receipt-preview');
+      prev.src=currentReceiptData;prev.style.display='block';
+      document.getElementById('receipt-label').textContent='Recibo adjunto ✓ — toca para cambiar';
+      document.getElementById('receipt-icon').textContent='✓';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// STATUS
+function showStatus(type,msg){
+  var bar=document.getElementById('status-bar');
+  bar.className='status-bar s-'+type;
+  document.getElementById('s-icon').textContent={ok:'✓',err:'✕',loading:'…'}[type];
+  document.getElementById('s-msg').textContent=msg;
+  bar.style.display='flex';
+  if(type==='ok')setTimeout(()=>bar.style.display='none',3500);
+}
+
+// GUARDAR
+async function guardar(){
+  var monto=parseFloat(document.getElementById('monto').value);
+  var fecha=document.getElementById('fecha').value;
+  var moneda=document.getElementById('moneda').value;
+  if(!monto||monto<=0){showStatus('err','Ingresa un monto válido');return;}
+  if(!fecha){showStatus('err','Selecciona una fecha');return;}
+  var tipo=document.getElementById('tipo').value;
+  var cuenta=(['Adelanto','ReembolsoAdel'].includes(tipo))?'INKAHUSET':document.getElementById('cuenta').value;
+  var fxReady=Object.keys(FX).length>0;
+  var montoPEN=fxReady?toCur(monto,moneda,'PEN'):monto;
+  var montoUSD=fxReady?toCur(monto,moneda,'USD'):monto;
+  var plat=(document.getElementById('plataforma')||{}).value||'';
+  var id='tx_'+Date.now()+'_'+Math.random().toString(36).substr(2,5);
+  var payload={
+    id:id,fecha:fecha,tipo:tipo,cuenta:cuenta,
+    monto:monto,moneda:moneda,
+    montoPEN:parseFloat(montoPEN.toFixed(2)),
+    montoUSD:parseFloat(montoUSD.toFixed(2)),
+    categoria:getCategoria(),
+    descripcion:document.getElementById('descripcion').value||'',
+    huesped:document.getElementById('huesped').value||'',
+    plataforma:tipo==='Reserva'?plat:'',
+    checkin:document.getElementById('checkin').value||'',
+    checkout:document.getElementById('checkout').value||'',
+    comision:parseFloat(document.getElementById('comision').value)||0,
+    metodoCobro:tipo==='Reserva'?(document.getElementById('metodo-cobro')||{}).value||'':'',
+    descProcesador:tipo==='Reserva'?parseFloat((document.getElementById('desc-procesador')||{}).value)||0:0,
+    persona:document.getElementById('persona').value||'',
+    motivo:document.getElementById('motivo').value||'',
+    adelDesc:document.getElementById('adel-desc').value||'',
+    estadoReserva:tipo==='Reserva'?getEstadosFlujo(plat)[0]:'',
+    unidad:tipo==='Reserva'?(document.getElementById('unidad')||{}).value||'':'',
+    lineaSkandean:cuenta==='SKANDEAN'?(document.getElementById('linea-skandean')||{}).value||'':'',
+    tieneRecibo:!!currentReceiptData
+  };
+  if(currentReceiptData){receipts[id]=currentReceiptData;localStorage.setItem('raw_receipts',JSON.stringify(receipts));}
+  // Guardar localmente primero
+  txs.unshift(payload);
+  if(txs.length>300)txs=txs.slice(0,300);
+  localStorage.setItem('raw_txs_v3',JSON.stringify(txs));
+  renderLocalTx();
+  var btn=document.getElementById('btn-guardar');
+  btn.disabled=true;btn.textContent='Guardando…';
+  showStatus('loading','Enviando a Google Sheets…');
+  try{
+    // no-cors resuelve el bloqueo CORS desde GitHub Pages
+    await fetch(SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify(payload)
+    });
+    showStatus('ok','Guardado — '+cuenta+' · '+fmt(monto,moneda));
+    resetForm();
+  }catch(e){
+    showStatus('ok','Guardado localmente ✓ — verifica tu Google Sheets');
+    resetForm();
+  }
+  btn.disabled=false;btn.textContent='Guardar en Google Sheets';
+}
+
+function resetForm(){
+  ['monto','descripcion','huesped','comision','persona','motivo','adel-desc','checkin','checkout','cat-custom','desc-procesador'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('receipt-preview').style.display='none';
+  document.getElementById('receipt-label').textContent='Adjuntar foto del recibo (opcional)';
+  document.getElementById('receipt-icon').textContent='📎';
+  document.getElementById('receipt-input').value='';
+  document.getElementById('conv-preview').style.display='none';
+  document.getElementById('cat-custom-row').style.display='none';
+  document.getElementById('linea-row').style.display='none';
+  currentReceiptData=null;
+  renderLocalTx();
+}
+
+// RENDER LOCAL TX
+function txIcon(tx){
+  if(tx.tieneRecibo&&receipts[tx.id])return '<img class="tx-thumb" src="'+receipts[tx.id]+'" onclick="openModal(\''+tx.id+'\')" alt="recibo">';
+  return '<div class="tx-icon">'+(TX_ICO[tx.tipo]||'·')+'</div>';
+}
+function isPos(tipo){return['Ingreso','ReembolsoAdel','CobroPrest','Reserva'].includes(tipo);}
+function renderLocalTx(){
+  var el=document.getElementById('local-tx');
+  if(!txs.length){el.innerHTML='<div class="empty-state">Los registros aparecerán aquí</div>';return;}
+  el.innerHTML=txs.slice(0,10).map(tx=>{
+    var p=isPos(tx.tipo);
+    var ma=fmt(tx.montoPEN||tx.monto,'PEN');
+    var oa=tx.moneda&&tx.moneda!=='PEN'?fmt(tx.monto,tx.moneda):'';
+    return '<div class="tx-item">'+txIcon(tx)+'<div class="tx-info"><div class="tx-name">'+(tx.descripcion||tx.huesped||tx.adelDesc||tx.persona||tx.tipo)+'</div><div class="tx-cat">'+(tx.cuenta||'')+' · '+tx.fecha+(tx.categoria?' · '+tx.categoria:'')+'</div></div><div class="tx-right"><div class="tx-amount '+(p?'pos':'neg')+'">'+(p?'+':'-')+ma+'</div>'+(oa?'<div class="tx-orig">'+oa+'</div>':'')+'</div></div>';
+  }).join('');
+}
+
+function openModal(id){var s=receipts[id];if(!s)return;document.getElementById('modal-img').src=s;document.getElementById('img-modal').style.display='flex';}
+function closeModal(){document.getElementById('img-modal').style.display='none';}
+
+// PERIODO
+function setPeriod(p){
+  PERIOD=p;PERIOD_OFFSET=0;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('active',b.textContent.trim()===({mes:'Este mes','mes-ant':'Mes anterior',trim:'Trimestre','trim-ant':'Trim. anterior',anio:'Este año',todo:'Todo'}[p]||'')));
+  updatePeriodLabel();render();
+}
+function shiftPeriod(dir){
+  if(PERIOD==='todo')return;
+  PERIOD_OFFSET+=dir;
+  updatePeriodLabel();render();
+}
+function updatePeriodLabel(){
+  var n=new Date(),label='';
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if(PERIOD==='mes'||PERIOD==='mes-ant'){
+    var d=new Date(n.getFullYear(),n.getMonth()+(PERIOD==='mes-ant'?-1:0)+PERIOD_OFFSET,1);
+    label=MONTHS[d.getMonth()]+' '+d.getFullYear();
+  } else if(PERIOD==='trim'||PERIOD==='trim-ant'){
+    var q=Math.floor(n.getMonth()/3)+(PERIOD==='trim-ant'?-1:0)+PERIOD_OFFSET;
+    var yr=n.getFullYear()+Math.floor(q/4);q=((q%4)+4)%4;
+    label='T'+(q+1)+' '+yr;
+  } else if(PERIOD==='anio'){
+    label='Año '+(n.getFullYear()+PERIOD_OFFSET);
+  } else {
+    label='Todo el historial';
+  }
+  var el=document.getElementById('period-label');
+  if(el)el.textContent=label;
+}
+function getPeriodTxs(){
+  var n=new Date();
+  if(PERIOD==='todo')return txs;
+  return txs.filter(tx=>{
+    if(!tx.fecha)return false;
+    var d=new Date(tx.fecha+'T12:00:00');
+    if(PERIOD==='mes'){var ref=new Date(n.getFullYear(),n.getMonth()+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
+    if(PERIOD==='mes-ant'){var ref=new Date(n.getFullYear(),n.getMonth()-1+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
+    if(PERIOD==='trim'){var qn=Math.floor(n.getMonth()/3)+PERIOD_OFFSET;var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;var qd=Math.floor(d.getMonth()/3);return d.getFullYear()===yr&&qd===qn;}
+    if(PERIOD==='trim-ant'){var qn=Math.floor(n.getMonth()/3)-1+PERIOD_OFFSET;var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;var qd=Math.floor(d.getMonth()/3);return d.getFullYear()===yr&&qd===qn;}
+    if(PERIOD==='anio'){return d.getFullYear()===(n.getFullYear()+PERIOD_OFFSET);}
+    return true;
+  });
+}
+
+// HELPERS
+function getMesTxs(){
+  var n=new Date(),m=n.getMonth(),y=n.getFullYear();
+  return txs.filter(tx=>{if(!tx.fecha)return false;var d=new Date(tx.fecha+'T12:00:00');return d.getMonth()===m&&d.getFullYear()===y;});
+}
+function sumTxs(list,types,cur){
+  return list.filter(tx=>types.includes(tx.tipo)).reduce((a,tx)=>{
+    var v=cur==='USD'?(tx.montoUSD||toUSD(tx.montoPEN||tx.monto,'PEN')):(tx.montoPEN||tx.monto||0);
+    return a+(parseFloat(v)||0);
+  },0);
+}
+function renderBars(el,list,cur){
+  var cats={};
+  list.filter(tx=>tx.tipo==='Gasto').forEach(tx=>{
+    var c=tx.categoria||'Otros';
+    var v=cur==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    cats[c]=(cats[c]||0)+(parseFloat(v)||0);
+  });
+  if(!Object.keys(cats).length){el.innerHTML='<div class="empty-state">Sin gastos</div>';return;}
+  var max=Math.max(...Object.values(cats));
+  el.innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
+    var pct=max?Math.round(v/max*100):0;
+    return '<div class="progress-row"><div class="progress-meta"><span class="progress-name">'+k+'</span><span class="progress-vals">'+fmt(v,cur)+'</span></div><div class="progress-track"><div class="progress-fill" style="width:'+pct+'%;background:var(--green)"></div></div></div>';
+  }).join('');
+}
+function renderTxList(el,list,cur){
+  if(!list.length){el.innerHTML='<div class="empty-state">Sin registros</div>';return;}
+  el.innerHTML=list.slice(0,15).map(tx=>{
+    var p=isPos(tx.tipo);
+    var v=cur==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    var oa=tx.moneda&&tx.moneda!=='PEN'&&tx.moneda!==cur?fmt(tx.monto,tx.moneda):'';
+    return '<div class="tx-item">'+txIcon(tx)+'<div class="tx-info"><div class="tx-name">'+(tx.descripcion||tx.huesped||tx.adelDesc||tx.persona||tx.tipo)+'</div><div class="tx-cat">'+(tx.categoria||tx.plataforma||'')+(tx.fecha?' · '+tx.fecha:'')+'</div></div><div class="tx-right"><div class="tx-amount '+(p?'pos':'neg')+'">'+(p?'+':'-')+fmt(v,cur)+'</div>'+(oa?'<div class="tx-orig">'+oa+'</div>':'')+'</div></div>';
+  }).join('');
+}
+
+// ESTADOS DE RESERVA
+function getEstadosFlujo(plat){
+  if(['Airbnb','VRBO'].includes(plat))return['Pendiente','Abonado por plataforma','Recibido en cuenta'];
+  return['Cobrado','Verificado con descuento','Liquidado'];
+}
+function advanceReserva(id){
+  var idx=txs.findIndex(t=>t.id===id);if(idx<0)return;
+  var plat=txs[idx].plataforma||'Airbnb';
+  var estados=getEstadosFlujo(plat);
+  var cur=txs[idx].estadoReserva||estados[0];
+  txs[idx].estadoReserva=estados[(estados.indexOf(cur)+1)%estados.length];
+  localStorage.setItem('raw_txs_v3',JSON.stringify(txs));
+  render();
+}
+
+// PERIODO ANTERIOR
+function getPrevPeriodTxs(){
+  var n=new Date();
+  return txs.filter(tx=>{
+    if(!tx.fecha)return false;
+    var d=new Date(tx.fecha+'T12:00:00');
+    if(PERIOD==='mes'||PERIOD==='mes-ant'){
+      var ref=new Date(n.getFullYear(),n.getMonth()+(PERIOD==='mes-ant'?-2:-1)+PERIOD_OFFSET,1);
+      return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();
+    }
+    if(PERIOD==='trim'||PERIOD==='trim-ant'){
+      var qn=Math.floor(n.getMonth()/3)+(PERIOD==='trim-ant'?-2:-1)+PERIOD_OFFSET;
+      var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;
+      var qd=Math.floor(d.getMonth()/3);
+      return d.getFullYear()===yr&&qd===qn;
+    }
+    if(PERIOD==='anio') return d.getFullYear()===(n.getFullYear()-1+PERIOD_OFFSET);
+    return false;
+  });
+}
+
+function getPrevPeriodLabel(){
+  var n=new Date();
+  var MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if(PERIOD==='mes'||PERIOD==='mes-ant'){
+    var d=new Date(n.getFullYear(),n.getMonth()+(PERIOD==='mes-ant'?-2:-1)+PERIOD_OFFSET,1);
+    return MONTHS[d.getMonth()]+' '+d.getFullYear();
+  }
+  if(PERIOD==='trim'||PERIOD==='trim-ant'){
+    var qn=Math.floor(n.getMonth()/3)+(PERIOD==='trim-ant'?-2:-1)+PERIOD_OFFSET;
+    var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;
+    return 'T'+(qn+1)+' '+yr;
+  }
+  if(PERIOD==='anio') return 'Año '+(n.getFullYear()-1+PERIOD_OFFSET);
+  return '—';
+}
+
+function varPct(cur, prev){
+  if(!prev||prev===0) return cur>0?'+100%':'—';
+  var pct=((cur-prev)/Math.abs(prev))*100;
+  var sign=pct>=0?'+':'';
+  return sign+pct.toFixed(1)+'%';
+}
+function varClass(cur, prev, invertido){
+  // invertido=true significa que bajar es bueno (ej: gastos)
+  if(!prev||prev===0) return 'var-neu';
+  var mejor=invertido?(cur<prev):(cur>prev);
+  return mejor?'var-pos':'var-neg';
+}
+function fmtSigned(n, cur){
+  var abs=Math.abs(parseFloat(n)||0);
+  var sym=CUR_SYM[cur]||(cur+' ');
+  var sign=n<0?'-':'+';
+  if(['JPY','CNY','KRW','CLP','COP','ARS'].includes(cur)) return sign+sym+Math.round(abs).toLocaleString('es-PE');
+  return sign+sym+abs.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function buildCompTable(rows){
+  // rows: [{label, cur, prev, cur_fmt, prev_fmt, invertido}]
+  return '<table class="comp-table"><thead><tr><th>KPI</th><th>Actual</th><th>Anterior</th><th>Var.</th></tr></thead><tbody>'
+    +rows.map(r=>{
+      var vp=varPct(r.cur,r.prev);
+      var vc=varClass(r.cur,r.prev,r.invertido||false);
+      var diff=r.cur-r.prev;
+      var diffFmt=r.isCurrency?fmtSigned(diff,r.currency||'PEN'):(diff>=0?'+':'')+diff.toFixed(r.decimals||0)+(r.suffix||'');
+      return '<tr><td class="kpi-name">'+r.label+'</td><td class="kpi-cur '+(r.cur<0?'var-neg':'')+'">'+r.cur_fmt+'</td><td class="kpi-prev">'+r.prev_fmt+'</td><td class="kpi-var '+vc+'">'+vp+'<br><span style="font-size:10px">'+diffFmt+'</span></td></tr>';
+    }).join('')
+    +'</tbody></table>';
+}
+
+// RENDER PRINCIPAL
+function render(){
+  var mes=getPeriodTxs();
+
+  // RESUMEN
+  var rc=CUR.r;
+  var ri=sumTxs(mes,['Ingreso','CobroPrest','Reserva'],rc);
+  var rg=sumTxs(mes,['Gasto','Prestamo','Adelanto'],rc);
+  var rn=ri-rg;
+  document.getElementById('r-ing').textContent=fmt(ri,rc);
+  document.getElementById('r-gas').textContent=fmt(rg,rc);
+  var ne=document.getElementById('r-neto');ne.textContent=fmt(rn,rc);ne.className='metric-value '+(rn>=0?'pos':'neg');
+  document.getElementById('r-neto-lbl').textContent=rn>=0?'Superávit':'Déficit';
+  document.getElementById('r-count').textContent=mes.length;
+  var cm={};
+  mes.forEach(tx=>{
+    if(!cm[tx.cuenta])cm[tx.cuenta]={i:0,g:0};
+    var v=rc==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    if(isPos(tx.tipo))cm[tx.cuenta].i+=parseFloat(v)||0;
+    if(['Gasto','Prestamo','Adelanto'].includes(tx.tipo))cm[tx.cuenta].g+=parseFloat(v)||0;
+  });
+  var cEl=document.getElementById('r-cuentas');
+  if(!Object.keys(cm).length)cEl.innerHTML='<div class="empty-state">Sin datos</div>';
+  else cEl.innerHTML=Object.entries(cm).map(([k,v])=>'<div class="exec-row"><span class="exec-label">'+k+'</span><span class="exec-val"><span style="color:var(--green)">+'+fmt(v.i,rc)+'</span>  <span style="color:var(--red)">-'+fmt(v.g,rc)+'</span></span></div>').join('');
+
+  // RESUMEN COMPARATIVO
+  var prev=getPrevPeriodTxs();
+  var prevLbl=getPrevPeriodLabel();
+  var curLbl=document.getElementById('period-label').textContent;
+  var setLbls=function(pre,cur,prev){
+    var cel=document.getElementById(pre+'-comp-cur-lbl');
+    var pel=document.getElementById(pre+'-comp-prev-lbl');
+    if(cel)cel.textContent=cur;if(pel)pel.textContent=prev;
+  };
+  setLbls('r',curLbl,prevLbl);
+  var prevIng=sumTxs(prev,['Ingreso','CobroPrest','Reserva'],rc);
+  var prevGas=sumTxs(prev,['Gasto','Prestamo','Adelanto'],rc);
+  var prevNeto=prevIng-prevGas;
+  var rCompEl=document.getElementById('r-comparativo');
+  if(PERIOD==='todo'){rCompEl.innerHTML='<div class="empty-state">Sin comparativo para "Todo el historial"</div>';}
+  else{rCompEl.innerHTML=buildCompTable([
+    {label:'Ingresos',cur:ri,prev:prevIng,cur_fmt:fmt(ri,rc),prev_fmt:fmt(prevIng,rc),isCurrency:true,currency:rc,invertido:false},
+    {label:'Egresos',cur:rg,prev:prevGas,cur_fmt:fmt(rg,rc),prev_fmt:fmt(prevGas,rc),isCurrency:true,currency:rc,invertido:true},
+    {label:'Flujo neto',cur:rn,prev:prevNeto,cur_fmt:fmt(rn,rc),prev_fmt:fmt(prevNeto,rc),isCurrency:true,currency:rc,invertido:false},
+  ]);}
+
+  renderBars(document.getElementById('r-cats'),mes,rc);
+
+  // RESERVAS
+  var allRes=txs.filter(tx=>tx.tipo==='Reserva');
+  var mesRes=mes.filter(tx=>tx.tipo==='Reserva');
+  var FINAL=['Recibido en cuenta','Liquidado'];
+  var resCob=allRes.filter(tx=>FINAL.includes(tx.estadoReserva)).reduce((a,tx)=>a+((tx.montoPEN||tx.monto)*(1-(tx.comision||0)/100)-(tx.montoPEN||tx.monto)*(tx.descProcesador||0)/100),0);
+  var resPend=allRes.filter(tx=>!FINAL.includes(tx.estadoReserva)).reduce((a,tx)=>a+((tx.montoPEN||tx.monto)*(1-(tx.comision||0)/100)),0);
+  var resCom=mesRes.reduce((a,tx)=>a+((tx.montoPEN||tx.monto)*(tx.comision||0)/100),0);
+  document.getElementById('res-cobrado').textContent=fmt(resCob,'PEN');
+  document.getElementById('res-pendiente').textContent=fmt(resPend,'PEN');
+  document.getElementById('res-total').textContent=mesRes.length;
+  document.getElementById('res-comisiones').textContent=fmt(resCom,'PEN');
+  var resEl=document.getElementById('res-lista');
+  if(!allRes.length)resEl.innerHTML='<div class="empty-state">Registra reservas en "+ Registrar"</div>';
+  else resEl.innerHTML=allRes.slice().reverse().slice(0,20).map(tx=>{
+    var plat=tx.plataforma||'Airbnb';
+    var estados=getEstadosFlujo(plat);
+    var estado=tx.estadoReserva||estados[0];
+    var neto=(tx.montoPEN||tx.monto)*(1-(tx.comision||0)/100);
+    var descP=(tx.montoPEN||tx.monto)*(tx.descProcesador||0)/100;
+    var netoFinal=neto-descP;
+    var bi=estados.indexOf(estado);
+    var bc=['b-warn','b-blue','b-ok'][bi]||'b-warn';
+    var platColor=PLAT_COL[plat]||'#888';
+    return '<div class="res-item"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:14px;font-weight:500">'+(tx.huesped||'Huésped')+'</div><div style="text-align:right"><div style="font-size:15px;font-weight:700">'+fmt(tx.montoPEN||tx.monto,'PEN')+'</div><div style="font-size:11px;color:var(--green)">Neto '+fmt(netoFinal,'PEN')+'</div></div></div><div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.6"><span style="color:'+platColor+';font-weight:600">'+plat+'</span>'+(tx.metodoCobro?' · '+tx.metodoCobro:'')+(tx.checkin?' · '+tx.checkin+' → '+tx.checkout:'')+(tx.comision?' · Com. '+tx.comision+'%':'')+(tx.descProcesador?' · Proc. '+tx.descProcesador+'%':'')+'</div><span class="badge '+bc+'" onclick="advanceReserva(\''+tx.id+'\')">'+estado+' →</span></div>';
+  }).join('');
+
+  // ADELANTOS
+  var adels=txs.filter(tx=>tx.tipo==='Adelanto');
+  var reembs=txs.filter(tx=>tx.tipo==='ReembolsoAdel').reduce((a,tx)=>a+(tx.montoPEN||tx.monto||0),0);
+  var totAdel=adels.reduce((a,tx)=>a+(tx.montoPEN||tx.monto||0),0);
+  document.getElementById('adv-pendiente').textContent=fmt(Math.max(0,totAdel-reembs),'PEN');
+  document.getElementById('adv-total').textContent=fmt(totAdel,'PEN');
+  var advEl=document.getElementById('adv-lista');
+  if(!adels.length)advEl.innerHTML='<div class="empty-state">Sin adelantos</div>';
+  else advEl.innerHTML=adels.map(tx=>{
+    var dias=Math.round((new Date()-new Date(tx.fecha+'T12:00:00'))/(1000*60*60*24));
+    return '<div class="adv-item"><div><div style="font-size:13px;font-weight:500">'+(tx.adelDesc||'Adelanto INKAHUSET')+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px">'+tx.fecha+' · '+dias+' días</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--amber)">'+fmt(tx.montoPEN||tx.monto,'PEN')+'</div><span class="badge b-warn">Pendiente</span></div></div>';
+  }).join('');
+  var cobEl=document.getElementById('adv-cobrados');
+  var cobs=txs.filter(tx=>tx.tipo==='ReembolsoAdel');
+  if(!cobs.length)cobEl.innerHTML='<div class="empty-state">Sin reembolsos</div>';
+  else cobEl.innerHTML=cobs.map(tx=>'<div class="adv-item"><div><div style="font-size:13px;font-weight:500">Reembolso recibido</div><div style="font-size:11px;color:var(--text3);margin-top:2px">'+tx.fecha+'</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--green)">'+fmt(tx.montoPEN||tx.monto,'PEN')+'</div><span class="badge b-ok">Recibido</span></div></div>').join('');
+
+  // INKAHUSET
+  renderNegocio('ink','INKAHUSET',mes,CUR.ink,true);
+  // SKANDEAN
+  renderNegocio('sk','SKANDEAN',mes,CUR.sk,false);
+
+  // PERSONAL KPIs
+  var pm=mes.filter(tx=>tx.cuenta==='Personal');
+  var pc=CUR.per;
+  var pIng=sumTxs(pm,['Ingreso','CobroPrest'],pc);
+  var pGas=sumTxs(pm,['Gasto','Prestamo'],pc);
+  var pNeto=pIng-pGas;
+  document.getElementById('per-ing').textContent=fmt(pIng,pc);
+  document.getElementById('per-gas').textContent=fmt(pGas,pc);
+  // Tasa de ahorro
+  var ahorro=pIng>0?Math.round((pNeto/pIng)*100):0;
+  var aEl=document.getElementById('per-ahorro');
+  aEl.textContent=ahorro+'%';aEl.className='metric-value '+(ahorro>=0?'pos':'neg');
+  // Gasto diario promedio
+  var dias=getDiasPeriodo();
+  document.getElementById('per-daily').textContent=fmt(pGas/Math.max(1,dias),pc);
+  // Top categoria
+  var cats={};
+  pm.filter(tx=>tx.tipo==='Gasto').forEach(tx=>{var c=tx.categoria||'Otros';var v=pc==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);cats[c]=(cats[c]||0)+(parseFloat(v)||0);});
+  var topCat=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('per-top-cat').textContent=topCat?topCat[0]+' ('+fmt(topCat[1],pc)+')':'—';
+  // Flujo neto
+  var pnEl=document.getElementById('per-neto');
+  pnEl.textContent=fmt(pNeto,pc);pnEl.className='exec-val '+(pNeto>=0?'pos':'neg');
+  // Proyeccion fin de mes (solo aplica para mes actual)
+  var proyEl=document.getElementById('per-proyeccion');
+  if(PERIOD==='mes'&&PERIOD_OFFSET===0){
+    var hoy=new Date().getDate();
+    var diasMes=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+    var gastoDiario=pGas/Math.max(1,hoy);
+    var proyFin=pIng-(gastoDiario*diasMes);
+    proyEl.textContent=fmt(proyFin,pc)+(proyFin>=0?' ✓':' ⚠');
+    proyEl.className='exec-val '+(proyFin>=0?'pos':'neg');
+  } else {
+    proyEl.textContent='Solo mes actual';proyEl.className='exec-val';
+  }
+  // PERSONAL COMPARATIVO
+  var prevPm=getPrevPeriodTxs().filter(tx=>tx.cuenta==='Personal');
+  var prevPIng=sumTxs(prevPm,['Ingreso','CobroPrest'],pc);
+  var prevPGas=sumTxs(prevPm,['Gasto','Prestamo'],pc);
+  var prevPNeto=prevPIng-prevPGas;
+  var prevPAhorro=prevPIng>0?Math.round((prevPNeto/prevPIng)*100):0;
+  var prevPDaily=prevPGas/Math.max(1,getDiasPeriodo());
+  setLbls('per',document.getElementById('period-label')?document.getElementById('period-label').textContent:'',getPrevPeriodLabel());
+  var perCompEl=document.getElementById('per-comparativo');
+  if(perCompEl){
+    if(PERIOD==='todo')perCompEl.innerHTML='<div class="empty-state">Sin comparativo para "Todo el historial"</div>';
+    else perCompEl.innerHTML=buildCompTable([
+      {label:'Ingresos',cur:pIng,prev:prevPIng,cur_fmt:fmt(pIng,pc),prev_fmt:fmt(prevPIng,pc),isCurrency:true,currency:pc,invertido:false},
+      {label:'Gastos',cur:pGas,prev:prevPGas,cur_fmt:fmt(pGas,pc),prev_fmt:fmt(prevPGas,pc),isCurrency:true,currency:pc,invertido:true},
+      {label:'Flujo neto',cur:pNeto,prev:prevPNeto,cur_fmt:fmt(pNeto,pc),prev_fmt:fmt(prevPNeto,pc),isCurrency:true,currency:pc,invertido:false},
+      {label:'Tasa de ahorro',cur:ahorro,prev:prevPAhorro,cur_fmt:ahorro+'%',prev_fmt:prevPAhorro+'%',decimals:1,suffix:'pp',invertido:false},
+      {label:'Gasto diario',cur:pGas/Math.max(1,getDiasPeriodo()),prev:prevPDaily,cur_fmt:fmt(pGas/Math.max(1,getDiasPeriodo()),pc),prev_fmt:fmt(prevPDaily,pc),isCurrency:true,currency:pc,invertido:true},
+    ]);
+  }
+
+  renderBars(document.getElementById('per-cats'),pm,pc);
+  renderTxList(document.getElementById('per-tx'),pm,pc);
+}
+
+function renderNegocio(id,nombre,mes,cur,hasRes){
+  var list=mes.filter(tx=>tx.cuenta===nombre);
+  var ing=sumTxs(list,['Ingreso','Reserva'],cur);
+  var gas=sumTxs(list,['Gasto'],cur);
+  var util=ing-gas;
+  var margen=ing?Math.round(util/ing*100):0;
+  document.getElementById(id+'-ing').textContent=fmt(ing,cur);
+  document.getElementById(id+'-gas').textContent=fmt(gas,cur);
+  var ue=document.getElementById(id+'-util');ue.textContent=fmt(util,cur);ue.className='metric-value '+(util>=0?'pos':'neg');
+  document.getElementById(id+'-margen').textContent='Margen '+margen+'%';
+
+  // Comparison data
+  var prevMes=getPrevPeriodTxs();
+  var prevList=prevMes.filter(tx=>tx.cuenta===nombre);
+  var prevIng2=sumTxs(prevList,['Ingreso','Reserva'],cur);
+  var prevGas2=sumTxs(prevList,['Gasto'],cur);
+  var prevUtil2=prevIng2-prevGas2;
+  var prevMargen2=prevIng2?Math.round(prevUtil2/prevIng2*100):0;
+  var prevLbl2=getPrevPeriodLabel();
+  var curLbl2=document.getElementById('period-label')?document.getElementById('period-label').textContent:'';
+  var setL=function(pre,c,p){var ce=document.getElementById(pre+'-comp-cur-lbl');var pe=document.getElementById(pre+'-comp-prev-lbl');if(ce)ce.textContent=c;if(pe)pe.textContent=p;};
+
+  if(hasRes){
+    // INKAHUSET KPIs
+    var reservas=list.filter(tx=>tx.tipo==='Reserva');
+    document.getElementById(id+'-res').textContent=reservas.length;
+    // RevPAR: total ingresos / (16 unidades * dias del periodo)
+    var diasPeriodo=getDiasPeriodo();
+    var revpar=diasPeriodo>0?ing/(16*diasPeriodo):0;
+    document.getElementById(id+'-revpar').textContent=fmt(revpar,cur)+' / noche';
+    // Ocupacion: noches vendidas / (16 * dias periodo)
+    var nochesVendidas=reservas.reduce((a,tx)=>{
+      if(tx.checkin&&tx.checkout){var ci=new Date(tx.checkin),co=new Date(tx.checkout);return a+Math.max(0,Math.round((co-ci)/(1000*60*60*24)));}
+      return a+1;
+    },0);
+    var ocup=diasPeriodo>0?Math.round(nochesVendidas/(16*diasPeriodo)*100):0;
+    document.getElementById(id+'-ocup').textContent=ocup+'%  ('+nochesVendidas+' noches)';
+    // Avg por reserva
+    var avgRes=reservas.length?ing/reservas.length:0;
+    document.getElementById(id+'-avg-res').textContent=fmt(avgRes,cur);
+    // Comisiones
+    var comTotal=reservas.reduce((a,tx)=>a+((tx.montoPEN||tx.monto)*(tx.comision||0)/100),0);
+    var comTotalCur=cur==='USD'?comTotal/( FX.PEN||3.73):comTotal;
+    var comPct=ing?Math.round(comTotalCur/ing*100):0;
+    document.getElementById(id+'-com-total').textContent=fmt(comTotalCur,cur);
+    document.getElementById(id+'-com-pct').textContent=comPct+'%';
+    // Adelantos
+    var adelPend=txs.filter(tx=>tx.tipo==='Adelanto').reduce((a,tx)=>a+(tx.montoPEN||tx.monto||0),0)
+      -txs.filter(tx=>tx.tipo==='ReembolsoAdel').reduce((a,tx)=>a+(tx.montoPEN||tx.monto||0),0);
+    document.getElementById(id+'-adel').textContent=fmt(Math.max(0,adelPend),'PEN');
+    // Por unidad
+    var unidades={};
+    reservas.forEach(tx=>{var u=tx.unidad||'Sin unidad';var v=cur==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);unidades[u]=(unidades[u]||0)+(parseFloat(v)||0);});
+    var uEl=document.getElementById(id+'-por-unidad');
+    if(!Object.keys(unidades).length)uEl.innerHTML='<div class="empty-state">Sin reservas con unidad asignada</div>';
+    else{var maxU=Math.max(...Object.values(unidades));uEl.innerHTML=Object.entries(unidades).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{var pct=maxU?Math.round(v/maxU*100):0;return'<div class="progress-row"><div class="progress-meta"><span class="progress-name">'+k+'</span><span class="progress-vals">'+fmt(v,cur)+'</span></div><div class="progress-track"><div class="progress-fill" style="width:'+pct+'%;background:var(--green)"></div></div></div>';}).join('');}
+
+    // INKAHUSET COMPARATIVO
+    setL(id,curLbl2,prevLbl2);
+    var inkCompEl=document.getElementById(id+'-comparativo');
+    var prevRes2=prevList.filter(tx=>tx.tipo==='Reserva');
+    var prevAvgRes2=prevRes2.length?prevIng2/prevRes2.length:0;
+    var avgRes2=reservas.length?ing/reservas.length:0;
+    var prevNochesV=prevRes2.reduce((a,tx)=>{if(tx.checkin&&tx.checkout){var ci=new Date(tx.checkin),co=new Date(tx.checkout);return a+Math.max(0,Math.round((co-ci)/(1000*60*60*24)));}return a+1;},0);
+    var prevOcup2=diasPeriodo>0?Math.round(prevNochesV/(16*diasPeriodo)*100):0;
+    if(inkCompEl){
+      if(PERIOD==='todo')inkCompEl.innerHTML='<div class="empty-state">Sin comparativo para "Todo el historial"</div>';
+      else inkCompEl.innerHTML=buildCompTable([
+        {label:'Ingresos',cur:ing,prev:prevIng2,cur_fmt:fmt(ing,cur),prev_fmt:fmt(prevIng2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'Gastos',cur:gas,prev:prevGas2,cur_fmt:fmt(gas,cur),prev_fmt:fmt(prevGas2,cur),isCurrency:true,currency:cur,invertido:true},
+        {label:'Utilidad neta',cur:util,prev:prevUtil2,cur_fmt:fmt(util,cur),prev_fmt:fmt(prevUtil2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'Margen %',cur:margen,prev:prevMargen2,cur_fmt:margen+'%',prev_fmt:prevMargen2+'%',decimals:1,suffix:'pp',invertido:false},
+        {label:'Reservas',cur:reservas.length,prev:prevRes2.length,cur_fmt:reservas.length+'',prev_fmt:prevRes2.length+'',decimals:0,invertido:false},
+        {label:'Ingr. prom/reserva',cur:avgRes2,prev:prevAvgRes2,cur_fmt:fmt(avgRes2,cur),prev_fmt:fmt(prevAvgRes2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'Ocupación',cur:ocup,prev:prevOcup2,cur_fmt:ocup+'%',prev_fmt:prevOcup2+'%',decimals:1,suffix:'pp',invertido:false},
+      ]);
+    }
+
+  } else {
+    // SKANDEAN KPIs
+    document.getElementById(id+'-burn').textContent=fmt(gas,cur);
+    // Margen bruto (ingresos - costo mercancia) / ingresos
+    var costoMerc=sumTxs(list,['Gasto'],cur); // simplificado
+    var margenBruto=ing?Math.round((ing-costoMerc)/ing*100):0;
+    document.getElementById(id+'-margen-bruto').textContent=margenBruto+'%';
+    // Avg por venta
+    var ventas=list.filter(tx=>tx.tipo==='Ingreso');
+    var avgVenta=ventas.length?ing/ventas.length:0;
+    document.getElementById(id+'-avg-venta').textContent=fmt(avgVenta,cur);
+    // Runway: saldo / burn rate mensual
+    var burnMensual=gas||1;
+    var runway=burnMensual>0?Math.round(ing/burnMensual):0;
+    document.getElementById(id+'-runway').textContent=runway+' meses est.';
+    // ROI
+    var roi=gas>0?Math.round((util/gas)*100):0;
+    var roiEl=document.getElementById(id+'-roi');
+    roiEl.textContent=roi+'%';roiEl.className='exec-val '+(roi>=0?'pos':'neg');
+    // Por linea
+    var lineas={};
+    list.filter(tx=>tx.tipo==='Ingreso'&&tx.lineaSkandean).forEach(tx=>{var l=tx.lineaSkandean||'General';var v=cur==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);lineas[l]=(lineas[l]||0)+(parseFloat(v)||0);});
+    var lEl=document.getElementById(id+'-por-linea');
+    if(!Object.keys(lineas).length)lEl.innerHTML='<div class="empty-state">Sin ventas por línea registradas</div>';
+    else{var maxL=Math.max(...Object.values(lineas));lEl.innerHTML=Object.entries(lineas).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{var pct=maxL?Math.round(v/maxL*100):0;var cols={'Home':'#1D9E75','Ropa Outdoor':'#378ADD','Upcycling':'#7F77DD','General':'#888780'};return'<div class="progress-row"><div class="progress-meta"><span class="progress-name">'+k+'</span><span class="progress-vals">'+fmt(v,cur)+'</span></div><div class="progress-track"><div class="progress-fill" style="width:'+pct+'%;background:'+(cols[k]||'#888')+'"></div></div></div>';}).join('');}
+
+    // SKANDEAN COMPARATIVO
+    setL(id,curLbl2,prevLbl2);
+    var skCompEl=document.getElementById(id+'-comparativo');
+    var prevVentas2=prevList.filter(tx=>tx.tipo==='Ingreso');
+    var ventas2=list.filter(tx=>tx.tipo==='Ingreso');
+    var prevAvgV2=prevVentas2.length?prevIng2/prevVentas2.length:0;
+    var avgV2=ventas2.length?ing/ventas2.length:0;
+    var prevMargenB2=prevIng2?Math.round((prevIng2-prevGas2)/prevIng2*100):0;
+    var margenB2=ing?Math.round((ing-gas)/ing*100):0;
+    var prevRoi2=prevGas2>0?Math.round(((prevIng2-prevGas2)/prevGas2)*100):0;
+    var roi2=gas>0?Math.round((util/gas)*100):0;
+    if(skCompEl){
+      if(PERIOD==='todo')skCompEl.innerHTML='<div class="empty-state">Sin comparativo para "Todo el historial"</div>';
+      else skCompEl.innerHTML=buildCompTable([
+        {label:'Ingresos',cur:ing,prev:prevIng2,cur_fmt:fmt(ing,cur),prev_fmt:fmt(prevIng2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'Gastos',cur:gas,prev:prevGas2,cur_fmt:fmt(gas,cur),prev_fmt:fmt(prevGas2,cur),isCurrency:true,currency:cur,invertido:true},
+        {label:'Utilidad neta',cur:util,prev:prevUtil2,cur_fmt:fmt(util,cur),prev_fmt:fmt(prevUtil2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'Margen bruto %',cur:margenB2,prev:prevMargenB2,cur_fmt:margenB2+'%',prev_fmt:prevMargenB2+'%',decimals:1,suffix:'pp',invertido:false},
+        {label:'Ventas',cur:ventas2.length,prev:prevVentas2.length,cur_fmt:ventas2.length+'',prev_fmt:prevVentas2.length+'',decimals:0,invertido:false},
+        {label:'Ingr. prom/venta',cur:avgV2,prev:prevAvgV2,cur_fmt:fmt(avgV2,cur),prev_fmt:fmt(prevAvgV2,cur),isCurrency:true,currency:cur,invertido:false},
+        {label:'ROI',cur:roi2,prev:prevRoi2,cur_fmt:roi2+'%',prev_fmt:prevRoi2+'%',decimals:1,suffix:'pp',invertido:false},
+      ]);
+    }
+  }
+  renderTxList(document.getElementById(id+'-tx'),list,cur);
+}
+
+function getDiasPeriodo(){
+  var n=new Date();
+  if(PERIOD==='mes'||PERIOD==='mes-ant'){
+    var ref=new Date(n.getFullYear(),n.getMonth()+(PERIOD==='mes-ant'?-1:0)+PERIOD_OFFSET,1);
+    return new Date(ref.getFullYear(),ref.getMonth()+1,0).getDate();
+  }
+  if(PERIOD==='trim'||PERIOD==='trim-ant') return 91;
+  if(PERIOD==='anio') return 365;
+  if(PERIOD==='todo') return Math.max(1,Math.round((new Date()-new Date(txs.length?txs[txs.length-1].fecha+'T12:00:00':new Date()))/(1000*60*60*24)));
+  return 30;
+}
+
+// CONFIG
+function renderConfig(){
+  document.getElementById('cfg-cuentas').innerHTML=cuentas.map(c=>'<div class="exec-row"><span class="exec-label">'+c+'</span><span class="exec-val" style="color:var(--green);font-size:11px">Activa</span></div>').join('');
+  document.getElementById('cfg-cats').innerHTML=getAllCats().map(c=>'<div class="exec-row"><span class="exec-label" style="font-size:12px">'+c+'</span></div>').join('');
+  document.getElementById('cfg-tx-n').textContent=txs.length;
+  document.getElementById('cfg-rec-n').textContent=Object.keys(receipts).length;
+  document.getElementById('cfg-fx-val').textContent=FX.PEN?'1 USD = S/'+FX.PEN.toFixed(2):'—';
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
+  renderCuentaSelect();
+  renderCatSelect();
+  loadFX();
+  renderLocalTx();
+  updatePeriodLabel();
+});
+</script>
+</body>
+</html>
