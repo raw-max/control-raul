@@ -435,6 +435,16 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
     <div class="card-title">✅ Confirmado en cuenta</div>
     <div id="res-confirmed-list"><div class="empty-state">Sin reservas confirmadas</div></div>
   </div>
+  <div class="card">
+    <div class="card-title">📋 Comisiones OTA a pagar — Booking / Expedia</div>
+    <div class="hint warn">Estas comisiones las cobras tú del huésped y las pagas a la OTA por factura mensual. Úsalas para cruzar con las facturas de Booking y Expedia.</div>
+    <div class="cur-toggle" style="margin-bottom:10px">
+      <button class="cur-btn active" id="com-cur-pen" onclick="setComCur('PEN')">PEN</button>
+      <button class="cur-btn" id="com-cur-usd" onclick="setComCur('USD')">USD</button>
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none" id="ota-mes-bar"></div>
+    <div id="ota-report"><div class="empty-state">Sin comisiones OTA registradas</div></div>
+  </div>
 </div>
 
 <!-- ADELANTOS -->
@@ -699,7 +709,7 @@ function switchTab(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='config')renderConfig();
-  else if(name!=='registrar'){updatePeriodLabel();render();}
+  else if(name!=='registrar'){updatePeriodLabel();render();if(name==='reservas'){renderOTAMesBar();renderOTAReport();}}
 }
 
 // CURRENCY
@@ -922,11 +932,36 @@ function confirmarReserva(id){
   tx.diferencia=diff;
   saveTxUpdate(tx);
 }
-function calcNetoReserva(tx){
+function calcComisionOTA(tx){
   var bruto=tx.montoPEN||tx.monto||0;
-  var comMonto=tx.comisionTipo==='monto'?(tx.comisionMonto||0):(bruto*(tx.comision||0)/100);
-  var descMonto=tx.descProcesador>0?(bruto-comMonto)*(tx.descProcesador/100):0;
-  return bruto-comMonto-descMonto;
+  if(!tx.comision&&!tx.comisionMonto)return 0;
+  return tx.comisionTipo==='monto'?(parseFloat(tx.comisionMonto)||0):(bruto*(parseFloat(tx.comision)||0)/100);
+}
+function calcDescProcesador(tx){
+  var bruto=tx.montoPEN||tx.monto||0;
+  if(!tx.descProcesador)return 0;
+  return bruto*(parseFloat(tx.descProcesador)||0)/100;
+}
+function calcNetoEnCuenta(tx){
+  // Lo que llega fisicamente a tu cuenta bancaria:
+  // Airbnb/VRBO: bruto - comision OTA (ellos la descuentan antes de abonarte)
+  // Booking/Expedia/Directo: bruto - descuento procesador (comision OTA se paga aparte por factura)
+  var bruto=tx.montoPEN||tx.monto||0;
+  var plat=tx.plataforma||'';
+  var cobraPlat=['Airbnb','VRBO'].includes(plat);
+  if(cobraPlat){
+    return bruto-calcComisionOTA(tx);
+  } else {
+    return bruto-calcDescProcesador(tx);
+  }
+}
+function calcNetoReserva(tx){ return calcNetoEnCuenta(tx); }
+function getUnidadPropiedad(unidad){
+  // Agrupa habitaciones por propiedad para reporte de comisiones
+  if(!unidad)return'Sin unidad';
+  if(unidad.startsWith('PAC'))return'PAC';
+  if(unidad.startsWith('JCH'))return'JCH';
+  return unidad; // departamentos individualmente
 }
 
 async function saveTxUpdate(tx){
@@ -1074,6 +1109,101 @@ function buildComp(rows,curLabel,prevLabel,elId,lblId){
     +'</tbody></table>';
 }
 
+// OTA COMISIONES REPORT
+var OTA_MES_OFFSET = 0;
+var COM_CUR = 'PEN';
+
+function setComCur(c){
+  COM_CUR=c;
+  document.getElementById('com-cur-pen').className='cur-btn'+(c==='PEN'?' active':'');
+  document.getElementById('com-cur-usd').className='cur-btn'+(c==='USD'?' active':'');
+  renderOTAReport();
+}
+
+function setOtaMes(offset){
+  OTA_MES_OFFSET=offset;
+  renderOTAMesBar();
+  renderOTAReport();
+}
+
+function renderOTAMesBar(){
+  var bar=document.getElementById('ota-mes-bar');
+  if(!bar)return;
+  var n=new Date();
+  bar.innerHTML='';
+  for(var i=0;i>=-3;i--){
+    var d=new Date(n.getFullYear(),n.getMonth()+i,1);
+    var lbl=MONTHS[d.getMonth()].substring(0,3)+' '+d.getFullYear();
+    var btn=document.createElement('button');
+    btn.className='period-btn'+(i===OTA_MES_OFFSET?' active':'');
+    btn.textContent=lbl;
+    btn.setAttribute('data-offset',i);
+    btn.onclick=(function(off){return function(){setOtaMes(off);};})(i);
+    bar.appendChild(btn);
+  }
+}
+
+function renderOTAReport(){
+  var el=document.getElementById('ota-report');
+  if(!el)return;
+  var n=new Date();
+  var ref=new Date(n.getFullYear(),n.getMonth()+OTA_MES_OFFSET,1);
+  var mesLabel=MONTHS[ref.getMonth()]+' '+ref.getFullYear();
+  // Filter reservas de Booking/Expedia del mes seleccionado
+  var otaRes=txs.filter(function(tx){
+    if(tx.tipo!=='Reserva')return false;
+    if(!['Booking','Expedia'].includes(tx.plataforma))return false;
+    if(!tx.comision&&!tx.comisionMonto)return false;
+    if(!tx.fecha)return false;
+    var d=new Date(tx.fecha+'T12:00:00');
+    return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();
+  });
+  if(!otaRes.length){
+    el.innerHTML='<div class="empty-state">Sin comisiones OTA en '+mesLabel+'</div>';
+    return;
+  }
+  // Group by propiedad + plataforma
+  var grupos={};
+  otaRes.forEach(function(tx){
+    var prop=getUnidadPropiedad(tx.unidad||'Sin unidad');
+    var key=prop+'||'+tx.plataforma;
+    if(!grupos[key])grupos[key]={prop:prop,plat:tx.plataforma,reservas:[],total:0};
+    var com=calcComisionOTA(tx);
+    var comCur=COM_CUR==='USD'?toCur(com,'PEN','USD'):com;
+    grupos[key].reservas.push(tx);
+    grupos[key].total+=comCur;
+  });
+  var totalGlobal=Object.values(grupos).reduce(function(a,g){return a+g.total;},0);
+  var PLAT_COL3={Booking:'#003580',Expedia:'#FFC72C'};
+  var rows=Object.values(grupos).sort(function(a,b){return b.total-a.total;});
+  el.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+mesLabel+'</div>'
+    +rows.map(function(g){
+      var platColor=PLAT_COL3[g.plat]||'#888';
+      var resDetalle=g.reservas.map(function(tx){
+        var com=calcComisionOTA(tx);
+        var comCur=COM_CUR==='USD'?toCur(com,'PEN','USD'):com;
+        var bruto=tx.montoPEN||tx.monto||0;
+        var brutoCur=COM_CUR==='USD'?toCur(bruto,'PEN','USD'):bruto;
+        return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">'
+          +'<span style="color:var(--text2)">'+(tx.huesped||'Huésped')+(tx.checkin?' · '+tx.checkin:'')+'</span>'
+          +'<span style="color:var(--text)">Bruto: '+fmt(brutoCur,COM_CUR)+' → Com: <span style="color:var(--red)">-'+fmt(comCur,COM_CUR)+'</span></span>'
+          +'</div>';
+      }).join('');
+      return '<div style="background:var(--bg3);border-radius:var(--rs);padding:12px;margin-bottom:8px;border-left:3px solid '+platColor+'">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        +'<div><div style="font-size:13px;font-weight:600;color:var(--text)">'+g.prop+'</div>'
+        +'<div style="font-size:11px;color:'+platColor+';font-weight:500">'+g.plat+' · '+g.reservas.length+' reserva'+(g.reservas.length>1?'s':'')+'</div></div>'
+        +'<div style="font-size:15px;font-weight:700;color:var(--red)">-'+fmt(g.total,COM_CUR)+'</div>'
+        +'</div>'
+        +resDetalle
+        +'</div>';
+    }).join('')
+    +'<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border2);margin-top:4px">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--text)">Total comisiones '+mesLabel+'</span>'
+    +'<span style="font-size:15px;font-weight:700;color:var(--red)">-'+fmt(totalGlobal,COM_CUR)+'</span>'
+    +'</div>';
+}
+
 // RENDER PRINCIPAL
 function render(){
   updatePeriodLabel();
@@ -1119,44 +1249,103 @@ function render(){
   document.getElementById('res-difs').textContent=totalDif>0?'-'+fmt(totalDif,rCur):fmt(0,rCur);
   document.getElementById('res-comisiones').textContent='-'+fmt(totalCom,rCur);
   var PLAT_COL2={Airbnb:'#FF5A5F',VRBO:'#195DB3',Booking:'#003580',Expedia:'#FFC72C',Directo:'#1D9E75'};
+  function getPropiedad(unidad){
+    // Group PAC-1/2/3 as PAC, JCH-1/2/3/4 as JCH, dptos as individual
+    if(!unidad)return'Sin unidad';
+    if(unidad.startsWith('PAC'))return'PAC';
+    if(unidad.startsWith('JCH'))return'JCH';
+    return unidad;
+  }
+
   function resCard(tx){
     var bruto=tx.montoPEN||tx.monto||0;
-    var comM=tx.comisionMonto||0;
-    var descM=tx.descProcesador>0?(bruto-comM)*(tx.descProcesador/100):0;
-    var neto=bruto-comM-descM;
+    var plat=tx.plataforma||'';
+    var cobraPlat=['Airbnb','VRBO'].includes(plat);
+    var comM=calcComisionOTA(tx);
+    var descM=tx.descProcesador>0?bruto*(tx.descProcesador/100):0;
+    var netoEnCuenta=calcNetoReserva(tx);
     var brutoFmt=fmt(toCur(bruto,'PEN',rCur),rCur);
-    var comFmt=comM>0?('-'+fmt(toCur(comM,'PEN',rCur),rCur)):'—';
-    var descFmt=descM>0?('-'+fmt(toCur(descM,'PEN',rCur),rCur)):'—';
-    var netoFmt=fmt(toCur(neto,'PEN',rCur),rCur);
-    var platColor=PLAT_COL2[tx.plataforma]||'#888';
+    var netoFmt=fmt(toCur(netoEnCuenta,'PEN',rCur),rCur);
+    var platColor=PLAT_COL2[plat]||'#888';
     var isConf=tx.estadoReserva==='Confirmado en cuenta';
     var cardClass='res-item '+(isConf?'res-confirmed':(tx.diferencia&&tx.diferencia!==0?'res-diff':'res-pending'));
     var html='<div class="'+cardClass+'">';
     html+='<div class="res-guest">'+(tx.huesped||'Huésped')+(tx.unidad?' — '+tx.unidad:'')+'</div>';
-    html+='<div class="res-meta"><span style="color:'+platColor+';font-weight:600">'+tx.plataforma+'</span>'+(tx.metodoCobro?' · '+tx.metodoCobro:'')+(tx.checkin?' · '+tx.checkin+' → '+tx.checkout:'')+'</div>';
+    html+='<div class="res-meta"><span style="color:'+platColor+';font-weight:600">'+plat+'</span>'+(tx.metodoCobro?' · '+tx.metodoCobro:'')+(tx.checkin?' · '+tx.checkin+' → '+tx.checkout:'')+'</div>';
     html+='<div class="res-breakdown">';
-    html+='<div class="res-breakdown-row"><span class="lbl">Monto bruto</span><span class="val">'+brutoFmt+'</span></div>';
-    if(comM>0){var comLabel='- Comisión '+(tx.plataforma||'OTA');if(tx.comision){comLabel+=tx.comisionTipo==='pct'?' ('+tx.comision+'%)':' ('+fmt(tx.comisionMonto||comM,tx.moneda||'PEN')+')';}html+='<div class="res-breakdown-row"><span class="lbl">'+comLabel+'</span><span class="val neg">'+comFmt+'</span></div>';}
-    if(descM>0)html+='<div class="res-breakdown-row"><span class="lbl">- Procesador ('+tx.descProcesador+'%)</span><span class="val neg">'+descFmt+'</span></div>';
-    html+='<div class="res-breakdown-row total"><span class="lbl">Neto esperado</span><span class="val pos">'+netoFmt+'</span></div>';
+    html+='<div class="res-breakdown-row"><span class="lbl">Monto bruto cobrado</span><span class="val">'+brutoFmt+'</span></div>';
+    if(cobraPlat){
+      // Airbnb/VRBO: ellos descuentan comision y te abonan el neto
+      if(comM>0){
+        var comLbl='- Comisión '+plat+(tx.comision?(tx.comisionTipo==='pct'?' ('+tx.comision+'%)':' (monto fijo)'):'');
+        html+='<div class="res-breakdown-row"><span class="lbl">'+comLbl+'</span><span class="val neg">-'+fmt(toCur(comM,'PEN',rCur),rCur)+'</span></div>';
+      }
+      html+='<div class="res-breakdown-row total"><span class="lbl">Neto esperado de '+plat+'</span><span class="val pos">'+netoFmt+'</span></div>';
+    } else if(plat==='Directo'){
+      // Directo: solo descuento procesador
+      if(descM>0) html+='<div class="res-breakdown-row"><span class="lbl">- Desc. procesador ('+tx.descProcesador+'%)</span><span class="val neg">-'+fmt(toCur(descM,'PEN',rCur),rCur)+'</span></div>';
+      html+='<div class="res-breakdown-row total"><span class="lbl">Neto esperado en cuenta</span><span class="val pos">'+netoFmt+'</span></div>';
+    } else {
+      // Booking/Expedia: cobras con tarjeta, procesador descuenta, OTA se paga aparte
+      if(descM>0) html+='<div class="res-breakdown-row"><span class="lbl">- Desc. procesador ('+tx.descProcesador+'%)</span><span class="val neg">-'+fmt(toCur(descM,'PEN',rCur),rCur)+'</span></div>';
+      html+='<div class="res-breakdown-row total"><span class="lbl">Neto esperado en cuenta</span><span class="val pos">'+netoFmt+'</span></div>';
+      if(comM>0){
+        html+='<div class="res-breakdown-row" style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(186,117,23,0.4)">';
+        html+='<span class="lbl" style="color:var(--amber)">⚠ Comisión '+plat+' a pagar aparte'+(tx.comision?(tx.comisionTipo==='pct'?' ('+tx.comision+'%)':' (monto fijo)'):'')+'</span>';
+        html+='<span class="val" style="color:var(--amber)">'+fmt(toCur(comM,'PEN',rCur),rCur)+'</span></div>';
+      }
+    }
+    // Confirmacion de pago
     if(isConf&&tx.montoRecibido){
       var recibFmt=fmt(toCur(tx.montoRecibido,tx.moneda||'PEN',rCur),rCur);
       var difV=tx.diferencia||0;
-      html+='<div class="res-breakdown-row"><span class="lbl">✓ Recibido ('+tx.fechaConfirmacion+')</span><span class="val '+(difV<0?'neg':difV>0?'pos':'')+'">'+recibFmt+'</span></div>';
-      if(difV!==0)html+='<div class="res-breakdown-row"><span class="lbl" style="color:var(--red)">⚠ Diferencia a reclamar</span><span class="val neg">'+fmtSigned(toCur(difV,'PEN',rCur),rCur)+'</span></div>';
+      html+='<div class="res-breakdown-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">';
+      html+='<span class="lbl">✓ Recibido ('+tx.fechaConfirmacion+')</span>';
+      html+='<span class="val '+(difV<0?'neg':difV>0?'pos':'')+'">'+recibFmt+'</span></div>';
+      if(difV!==0){
+        html+='<div class="res-breakdown-row"><span class="lbl" style="color:var(--red)">⚠ Diferencia — reclamar a '+(cobraPlat?plat:'procesador')+'</span><span class="val neg">'+fmtSigned(toCur(difV,'PEN',rCur),rCur)+'</span></div>';
+      }
     }
     html+='</div>';
-    if(!isConf)html+='<button onclick="confirmarReserva(\''+tx.id+'\')" style="width:100%;padding:9px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px">✓ Confirmar llegada a cuenta</button>';
-    html+='<button onclick="editTx(\''+tx.id+'\')" style="width:100%;padding:7px;background:transparent;color:var(--blue);border:1px solid var(--border2);border-radius:var(--rs);font-size:11px;cursor:pointer;font-family:inherit;margin-top:6px">✏️ Editar reserva</button>';
+    var safeId=tx.id.replace(/'/g,"\\'");
+    if(!isConf) html+='<button onclick="confirmarReserva(\'' +safeId+ '\')" style="width:100%;padding:9px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px">✓ Confirmar llegada a cuenta</button>';
+    html+='<button onclick="editTx(\'' +safeId+ '\')" style="width:100%;padding:7px;background:transparent;color:var(--blue);border:1px solid var(--border2);border-radius:var(--rs);font-size:11px;cursor:pointer;font-family:inherit;margin-top:6px">✏️ Editar reserva</button>';
     html+='</div>';
     return html;
   }
-  var pendEl=document.getElementById('res-pending-list');
+
+  // REPORTE COMISIONES OTA POR PROPIEDAD (Booking/Expedia)
+  function renderComisionesOTA(allRes, rCur){
+    var el=document.getElementById('res-comisiones-ota');
+    if(!el)return;
+    var otaRes=allRes.filter(tx=>['Booking','Expedia'].includes(tx.plataforma)&&calcComisionOTA(tx)>0);
+    if(!otaRes.length){el.innerHTML='<div class="empty-state">Sin comisiones OTA pendientes</div>';return;}
+    // Group by propiedad + plataforma + mes
+    var groups={};
+    otaRes.forEach(tx=>{
+      var prop=getPropiedad(tx.unidad);
+      var mes=tx.fecha?tx.fecha.substr(0,7):'';
+      var key=prop+'|'+tx.plataforma+'|'+mes;
+      if(!groups[key])groups[key]={prop:prop,plat:tx.plataforma,mes:mes,count:0,comTotal:0,brutoTotal:0};
+      groups[key].count++;
+      groups[key].comTotal+=calcComisionOTA(tx);
+      groups[key].brutoTotal+=(tx.montoPEN||tx.monto||0);
+    });
+    var sorted=Object.values(groups).sort((a,b)=>b.mes.localeCompare(a.mes)||a.prop.localeCompare(b.prop));
+    var platColor2={Booking:'#003580',Expedia:'#FFC72C'};
+    el.innerHTML=sorted.map(g=>{
+      var pct=g.brutoTotal>0?Math.round(g.comTotal/g.brutoTotal*100):0;
+      return'<div class="exec-row"><span class="exec-label"><span style="color:'+(platColor2[g.plat]||'#888')+';font-weight:600">'+g.plat+'</span> · '+g.prop+' · '+g.mes+'<br><span style="font-size:10px;color:var(--text3)">'+g.count+' reserva(s) · '+pct+'% prom.</span></span><span class="exec-val" style="color:var(--amber)">'+fmt(toCur(g.comTotal,'PEN',rCur),rCur)+'</span></div>';
+    }).join('');
+  }
+
+    var pendEl=document.getElementById('res-pending-list');
   if(!pending.length)pendEl.innerHTML='<div class="empty-state">Sin reservas pendientes</div>';
   else pendEl.innerHTML=pending.map(resCard).join('');
   var confEl=document.getElementById('res-confirmed-list');
   if(!confirmed.length)confEl.innerHTML='<div class="empty-state">Sin reservas confirmadas</div>';
   else confEl.innerHTML=confirmed.map(resCard).join('');
+  renderComisionesOTA(allRes,rCur);
 
   // ADELANTOS
   var adels=txs.filter(tx=>tx.tipo==='Adelanto');
@@ -1300,6 +1489,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   loadFX();
   loadLocal();
   updatePeriodLabel();
+  renderOTAMesBar();
 });
 </script>
 </body>
