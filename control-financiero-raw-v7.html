@@ -240,7 +240,30 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
         <option value="Home">Home</option>
         <option value="Ropa Outdoor">Ropa Outdoor</option>
         <option value="Upcycling">Upcycling</option>
-        <option value="General">General</option>
+        <option value="General">General (gastos compartidos)</option>
+      </select>
+    </div>
+
+    <!-- UNIDAD INKAHUSET para gastos -->
+    <div id="unidad-gasto-row" style="display:none" class="form-row">
+      <label class="form-label">Unidad / propiedad</label>
+      <select id="unidad-gasto">
+        <optgroup label="Departamentos">
+          <option value="308">Dpto 308</option>
+          <option value="309">Dpto 309</option>
+          <option value="404">Dpto 404</option>
+          <option value="406">Dpto 406</option>
+          <option value="409">Dpto 409</option>
+          <option value="509">Dpto 509</option>
+          <option value="803">Dpto 803</option>
+          <option value="902">Dpto 902</option>
+          <option value="1202">Dpto 1202</option>
+        </optgroup>
+        <optgroup label="Propiedades hab.">
+          <option value="PAC">PAC</option>
+          <option value="JCH">JCH</option>
+        </optgroup>
+        <option value="General">General (compartido)</option>
       </select>
     </div>
 
@@ -493,6 +516,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
     <div class="exec-row"><span class="exec-label">Adelantos pendientes</span><span class="exec-val warn" id="ink-adel">—</span></div>
   </div>
   <div class="card"><div class="card-title">Comparativo vs período anterior</div><div id="ink-comp-lbl" style="font-size:10px;color:var(--text3);margin-bottom:8px"></div><div id="ink-comparativo"><div class="empty-state">Sin datos</div></div></div>
+  <div class="card"><div class="card-title">Rentabilidad por unidad</div><div id="ink-rentabilidad"><div class="empty-state">Sin datos</div></div></div>
   <div class="card"><div class="card-title">Ingresos por unidad</div><div id="ink-por-unidad"><div class="empty-state">Sin reservas</div></div></div>
   <div class="card"><div class="card-title">Transacciones</div><div id="ink-tx"><div class="empty-state">Sin registros</div></div></div>
 </div>
@@ -524,7 +548,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.4)}
     <div class="exec-row"><span class="exec-label">ROI del período</span><span class="exec-val" id="sk-roi">—</span></div>
   </div>
   <div class="card"><div class="card-title">Comparativo vs período anterior</div><div id="sk-comp-lbl" style="font-size:10px;color:var(--text3);margin-bottom:8px"></div><div id="sk-comparativo"><div class="empty-state">Sin datos</div></div></div>
-  <div class="card"><div class="card-title">Por línea de producto</div><div id="sk-por-linea"><div class="empty-state">Sin ventas</div></div></div>
+  <div class="card"><div class="card-title">Rentabilidad por línea</div><div id="sk-rentabilidad"><div class="empty-state">Sin datos</div></div></div>
+  <div class="card"><div class="card-title">Ingresos por línea</div><div id="sk-por-linea"><div class="empty-state">Sin ventas</div></div></div>
   <div class="card"><div class="card-title">Transacciones</div><div id="sk-tx"><div class="empty-state">Sin registros</div></div></div>
 </div>
 
@@ -698,6 +723,7 @@ function normalizeRow(row){
     montoRecibido:parseFloat(row.MontoRecibido||row.montoRecibido)||0,
     diferencia:parseFloat(row.Diferencia||row.diferencia)||0,
     lineaSkandean:row.LineaSkandean||row.lineaSkandean||'',
+    unidadGasto:row.UnidadGasto||row.unidadGasto||'',
     tieneRecibo:row.TieneRecibo==='Si'||row.tieneRecibo===true||row.tieneRecibo==='Si',
   };
 }
@@ -787,7 +813,14 @@ function getDiasPeriodo(){
 // CUENTAS
 function renderCuentaSelect(){var sel=document.getElementById('cuenta'),prev=sel.value;sel.innerHTML=cuentas.map(c=>'<option>'+c+'</option>').join('');if(cuentas.includes(prev))sel.value=prev;sel.onchange=checkLineaRow;}
 function addCuenta(){var n=document.getElementById('nueva-cuenta').value.trim();if(!n||cuentas.includes(n)){return;}cuentas.push(n);localStorage.setItem('raw_cuentas',JSON.stringify(cuentas));document.getElementById('nueva-cuenta').value='';renderCuentaSelect();renderConfig();}
-function checkLineaRow(){var c=document.getElementById('cuenta').value,t=document.getElementById('tipo').value;document.getElementById('linea-row').style.display=(c==='SKANDEAN'&&(t==='Gasto'||t==='Ingreso'))?'block':'none';}
+function checkLineaRow(){
+  var c=document.getElementById('cuenta').value;
+  var t=document.getElementById('tipo').value;
+  // SKANDEAN: mostrar linea para gastos e ingresos
+  document.getElementById('linea-row').style.display=(c==='SKANDEAN'&&(t==='Gasto'||t==='Ingreso'))?'block':'none';
+  // INKAHUSET: mostrar unidad para gastos
+  document.getElementById('unidad-gasto-row').style.display=(c==='INKAHUSET'&&t==='Gasto')?'block':'none';
+}
 
 // CATEGORIAS
 function renderCatSelect(){var sel=document.getElementById('categoria');sel.innerHTML=getAllCats().map(c=>'<option value="'+c+'">'+c+'</option>').join('')+'<option value="__custom__">+ Añadir nueva categoría…</option>';}
@@ -911,6 +944,7 @@ function editTx(id){
   if(tx.motivo)document.getElementById('motivo').value=tx.motivo;
   if(tx.adelDesc)document.getElementById('adel-desc').value=tx.adelDesc;
   if(tx.lineaSkandean&&document.getElementById('linea-skandean'))document.getElementById('linea-skandean').value=tx.lineaSkandean;
+  if(tx.unidadGasto&&document.getElementById('unidad-gasto'))document.getElementById('unidad-gasto').value=tx.unidadGasto;
   if(tx.tipo==='Reserva')onPlataformaChange();
   updateConversion();
   document.getElementById('btn-guardar').textContent='Actualizar registro';
@@ -1011,7 +1045,7 @@ async function guardar(){
     categoria:['Gasto','Ingreso'].includes(tipo)?getCategoria():'',
     descripcion:document.getElementById('descripcion').value||'',
     huesped:document.getElementById('huesped').value||'',
-    unidad:(document.getElementById('unidad')||{}).value||'',
+    unidad:tipo==='Reserva'?(document.getElementById('unidad')||{}).value||'':(cuenta==='INKAHUSET'&&tipo==='Gasto'?(document.getElementById('unidad-gasto')||{}).value||'':''),
     plataforma:tipo==='Reserva'?plat:'',
     checkin:document.getElementById('checkin').value||'',
     checkout:document.getElementById('checkout').value||'',
@@ -1026,6 +1060,7 @@ async function guardar(){
     estadoReserva:tipo==='Reserva'?(editingId?(txs.find(t=>t.id===editingId)||{}).estadoReserva||'Pendiente':'Pendiente'):'',
     fechaConfirmacion:'',montoRecibido:0,diferencia:0,
     lineaSkandean:cuenta==='SKANDEAN'?(document.getElementById('linea-skandean')||{}).value||'':'',
+    unidadGasto:cuenta==='INKAHUSET'&&tipo==='Gasto'?(document.getElementById('unidad-gasto')||{}).value||'':'',
     tieneRecibo:!!currentReceiptData
   };
   if(currentReceiptData){receipts[id]=currentReceiptData;localStorage.setItem('raw_receipts',JSON.stringify(receipts));}
@@ -1053,6 +1088,7 @@ function resetForm(){
   document.getElementById('neto-preview').style.display='none';
   document.getElementById('cat-custom-row').style.display='none';
   document.getElementById('linea-row').style.display='none';
+  document.getElementById('unidad-gasto-row').style.display='none';
   currentReceiptData=null;
   renderLocalTx();
 }
@@ -1414,6 +1450,40 @@ function render(){
     {label:'Margen %',cur:inkMargen,prev:inkPrevM,cf:inkMargen+'%',pf:inkPrevM+'%',dec:1,suf:'pp'},
     {label:'Reservas',cur:inkRes.length,prev:inkPrev.filter(tx=>tx.tipo==='Reserva').length,cf:inkRes.length+'',pf:inkPrev.filter(tx=>tx.tipo==='Reserva').length+'',dec:0},
   ],curLbl,prevLbl,'ink-comparativo','ink-comp-lbl');
+  // RENTABILIDAD POR UNIDAD
+  var rentUnidad={};
+  // Ingresos por unidad (de reservas)
+  inkRes.forEach(tx=>{
+    var u=getUnidadPropiedad(tx.unidad||'Sin unidad');
+    if(!rentUnidad[u])rentUnidad[u]={ing:0,gas:0,com:0};
+    var v=ink==='USD'?toCur(tx.montoPEN||tx.monto||0,'PEN','USD'):(tx.montoPEN||tx.monto||0);
+    var c=ink==='USD'?toCur(calcComisionOTA(tx),'PEN','USD'):calcComisionOTA(tx);
+    rentUnidad[u].ing+=parseFloat(v)||0;
+    rentUnidad[u].com+=parseFloat(c)||0;
+  });
+  // Gastos por unidad (de gastos asignados)
+  inkMes.filter(tx=>tx.tipo==='Gasto'&&tx.unidadGasto).forEach(tx=>{
+    var u=getUnidadPropiedad(tx.unidadGasto);
+    if(!rentUnidad[u])rentUnidad[u]={ing:0,gas:0,com:0};
+    var v=ink==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    rentUnidad[u].gas+=parseFloat(v)||0;
+  });
+  // Gastos generales — mostrar separado
+  var gasGeneral=inkMes.filter(tx=>tx.tipo==='Gasto'&&(!tx.unidadGasto||tx.unidadGasto==='General')).reduce((a,tx)=>a+(ink==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0)),0);
+  if(gasGeneral>0){if(!rentUnidad['General'])rentUnidad['General']={ing:0,gas:0,com:0};rentUnidad['General'].gas+=gasGeneral;}
+  var rentEl=document.getElementById('ink-rentabilidad');
+  if(Object.keys(rentUnidad).length){
+    rentEl.innerHTML=Object.entries(rentUnidad).sort((a,b)=>(b[1].ing-b[1].com-b[1].gas)-(a[1].ing-a[1].com-a[1].gas)).map(([u,v])=>{
+      var neto=v.ing-v.com;
+      var util=neto-v.gas;
+      var margen=neto>0?Math.round(util/neto*100):0;
+      var cls=util>=0?'pos':'neg';
+      return '<div class="exec-row"><span class="exec-label" style="font-size:12px"><strong>'+u+'</strong><br><span style="font-size:10px;color:var(--text3)">Ing.neto: '+fmt(neto,ink)+' · Gastos: '+fmt(v.gas,ink)+'</span></span><span class="exec-val '+cls+'">'+(util<0?'-':'')+fmt(util,ink)+'<br><span style="font-size:10px">Margen '+margen+'%</span></span></div>';
+    }).join('');
+  } else {
+    rentEl.innerHTML='<div class="empty-state">Sin datos — asigna unidad a gastos de INKAHUSET</div>';
+  }
+
   var unidades={};inkRes.forEach(tx=>{var u=tx.unidad||'Sin unidad';var v=ink==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);unidades[u]=(unidades[u]||0)+(parseFloat(v)||0);});
   var uEl=document.getElementById('ink-por-unidad');
   if(!Object.keys(unidades).length)uEl.innerHTML='<div class="empty-state">Sin reservas</div>';
@@ -1446,6 +1516,35 @@ function render(){
     {label:'Utilidad',cur:skUtil,prev:skPU,cf:(skUtil<0?'-':'')+fmt(skUtil,sk),pf:(skPU<0?'-':'')+fmt(skPU,sk),isCurrency:true,cur_currency:sk},
     {label:'Margen %',cur:skM,prev:skPM,cf:skM+'%',pf:skPM+'%',dec:1,suf:'pp'},
   ],curLbl,prevLbl,'sk-comparativo','sk-comp-lbl');
+  // RENTABILIDAD POR LINEA SKANDEAN
+  var rentLinea={};
+  // Ingresos por linea
+  skV.forEach(tx=>{
+    var l=tx.lineaSkandean||'General';
+    if(!rentLinea[l])rentLinea[l]={ing:0,gas:0};
+    var v=sk==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    rentLinea[l].ing+=parseFloat(v)||0;
+  });
+  // Gastos por linea
+  skMes.filter(tx=>tx.tipo==='Gasto').forEach(tx=>{
+    var l=tx.lineaSkandean||'General';
+    if(!rentLinea[l])rentLinea[l]={ing:0,gas:0};
+    var v=sk==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);
+    rentLinea[l].gas+=parseFloat(v)||0;
+  });
+  var skRentEl=document.getElementById('sk-rentabilidad');
+  if(Object.keys(rentLinea).length){
+    skRentEl.innerHTML=Object.entries(rentLinea).sort((a,b)=>(b[1].ing-b[1].gas)-(a[1].ing-a[1].gas)).map(([l,v])=>{
+      var util=v.ing-v.gas;
+      var margen=v.ing>0?Math.round(util/v.ing*100):0;
+      var cls=util>=0?'pos':'neg';
+      var cols={'Home':'#1D9E75','Ropa Outdoor':'#378ADD','Upcycling':'#7F77DD','General':'#888'};
+      return '<div class="exec-row"><span class="exec-label" style="font-size:12px"><span style="color:'+(cols[l]||'#888')+';font-weight:600">'+l+'</span><br><span style="font-size:10px;color:var(--text3)">Ingresos: '+fmt(v.ing,sk)+' · Gastos: '+fmt(v.gas,sk)+'</span></span><span class="exec-val '+cls+'">'+(util<0?'-':'')+fmt(util,sk)+'<br><span style="font-size:10px">Margen '+margen+'%</span></span></div>';
+    }).join('');
+  } else {
+    skRentEl.innerHTML='<div class="empty-state">Sin datos — asigna línea a gastos de SKANDEAN</div>';
+  }
+
   var lineas={};skV.forEach(tx=>{var l=tx.lineaSkandean||'General';var v=sk==='USD'?(tx.montoUSD||0):(tx.montoPEN||tx.monto||0);lineas[l]=(lineas[l]||0)+(parseFloat(v)||0);});
   var lEl=document.getElementById('sk-por-linea');
   if(!Object.keys(lineas).length)lEl.innerHTML='<div class="empty-state">Sin ventas</div>';
