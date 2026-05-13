@@ -695,30 +695,31 @@ async function syncFromSheets(){
   var btn=document.getElementById('sync-btn');
   btn.textContent='Sincronizando…';btn.className='sync-btn syncing';
   try{
-    var r=await fetch(SCRIPT_URL,{method:'GET',mode:'no-cors'});
-    // no-cors means we can't read response - use alternative
-    var r2=await fetch(SCRIPT_URL+'?action=read');
-    var d=await r2.json();
-    if(d.ok&&d.data){
+    var r=await fetch(SCRIPT_URL,{method:'GET'});
+    var d=await r.json();
+    if(d.ok&&d.data&&d.data.length){
       txs=d.data.map(normalizeRow);
       localStorage.setItem('raw_txs_v7',JSON.stringify(txs));
       localStorage.setItem('raw_last_sync',new Date().toISOString());
-      btn.textContent='✓ Sincronizado';btn.className='sync-btn ok';
+      btn.textContent='✓ '+txs.length+' registros';btn.className='sync-btn ok';
       renderLocalTx();render();
     } else {
+      btn.textContent='Sin datos en Sheets';btn.className='sync-btn';
       loadLocal();
-      btn.textContent='↻ Sync';btn.className='sync-btn';
     }
   }catch(e){
-    loadLocal();
+    // CORS blocked - load from local only
     btn.textContent='↻ Sync';btn.className='sync-btn';
+    loadLocal();
   }
-  setTimeout(()=>{btn.textContent='↻ Sync';btn.className='sync-btn';},3000);
+  setTimeout(()=>{btn.textContent='↻ Sync';btn.className='sync-btn';},4000);
 }
 function loadLocal(){
-  txs=JSON.parse(localStorage.getItem('raw_txs_v7')||'[]');
-  if(!txs.length) txs=JSON.parse(localStorage.getItem('raw_txs_v3')||'[]');
-  renderLocalTx();render();
+  var saved=JSON.parse(localStorage.getItem('raw_txs_v7')||'[]');
+  if(!saved.length) saved=JSON.parse(localStorage.getItem('raw_txs_v3')||'[]');
+  if(saved.length) txs=saved;
+  renderLocalTx();
+  if(txs.length) render();
 }
 function normalizeRow(row){
   return {
@@ -762,7 +763,7 @@ function switchTab(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='config')renderConfig();
-  else if(name!=='registrar'){updatePeriodLabel();render();if(name==='reservas'){renderOTAMesBar();renderOTAReport();}}
+  else if(name!=='registrar'){updatePeriodLabel();if(txs.length)render();if(name==='reservas'){renderOTAMesBar();renderOTAReport();}}
 }
 
 // CURRENCY
