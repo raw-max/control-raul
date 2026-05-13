@@ -729,7 +729,12 @@ function loadLocal(){
 function normalizeRow(row){
   return {
     id:row.ID||row.id||'',
-    fecha:row.Fecha||row.fecha||'',
+    fecha:(function(){
+      var f=row.Fecha||row.fecha||'';
+      if(f instanceof Date){var m=f.getMonth()+1,d=f.getDate();return f.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(d<10?'0':'')+d;}
+      if(typeof f==='number'&&f>40000){var dd=new Date((f-25569)*86400*1000);var m=dd.getMonth()+1,dy=dd.getDate();return dd.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dy<10?'0':'')+dy;}
+      return String(f).substring(0,10)||'';
+    })(),
     tipo:row.Tipo||row.tipo||'',
     cuenta:row.Cuenta||row.cuenta||'',
     categoria:row.Categoria||row.categoria||'',
@@ -805,12 +810,33 @@ function updatePeriodLabel(){
   else{label='Todo el historial';}
   ['period-label','ink-period-label'].forEach(id=>{var el=document.getElementById(id);if(el)el.textContent=label;});
 }
+function parseFecha(fecha){
+  if(!fecha) return null;
+  // Handle both string dates and Date objects from Google Sheets
+  if(fecha instanceof Date) return fecha;
+  var s=String(fecha).trim();
+  // Handle Google Sheets date format (could be number or string)
+  if(!isNaN(s) && s.length>4){
+    // Google Sheets serial date number
+    var d=new Date((parseFloat(s)-25569)*86400*1000);
+    return d;
+  }
+  // Standard ISO date string YYYY-MM-DD
+  if(s.match(/^\d{4}-\d{2}-\d{2}/)){
+    return new Date(s.substring(0,10)+'T12:00:00');
+  }
+  // Try direct parse
+  var d=new Date(s);
+  return isNaN(d)?null:d;
+}
+
 function getPeriodTxs(){
   var n=new Date();
   if(PERIOD==='todo')return txs;
   return txs.filter(tx=>{
     if(!tx.fecha)return false;
-    var d=new Date(tx.fecha+'T12:00:00');
+    var d=parseFecha(tx.fecha);
+    if(!d)return false;
     if(PERIOD==='mes'){var ref=new Date(n.getFullYear(),n.getMonth()+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
     if(PERIOD==='mes-ant'){var ref=new Date(n.getFullYear(),n.getMonth()-1+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
     if(PERIOD==='trim'){var qn=Math.floor(n.getMonth()/3)+PERIOD_OFFSET;var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;return d.getFullYear()===yr&&Math.floor(d.getMonth()/3)===qn;}
@@ -824,7 +850,8 @@ function getPrevPeriodTxs(){
   if(PERIOD==='todo')return[];
   return txs.filter(tx=>{
     if(!tx.fecha)return false;
-    var d=new Date(tx.fecha+'T12:00:00');
+    var d=parseFecha(tx.fecha);
+    if(!d)return false;
     if(PERIOD==='mes'){var ref=new Date(n.getFullYear(),n.getMonth()-1+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
     if(PERIOD==='mes-ant'){var ref=new Date(n.getFullYear(),n.getMonth()-2+PERIOD_OFFSET,1);return d.getFullYear()===ref.getFullYear()&&d.getMonth()===ref.getMonth();}
     if(PERIOD==='trim'){var qn=Math.floor(n.getMonth()/3)-1+PERIOD_OFFSET;var yr=n.getFullYear()+Math.floor(qn/4);qn=((qn%4)+4)%4;return d.getFullYear()===yr&&Math.floor(d.getMonth()/3)===qn;}
