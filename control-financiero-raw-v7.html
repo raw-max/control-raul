@@ -768,7 +768,13 @@ function switchTab(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='config')renderConfig();
-  else if(name!=='registrar'){updatePeriodLabel();if(txs.length)render();if(name==='reservas'){renderOTAMesBar();renderOTAReport();}}
+  else if(name!=='registrar'){
+    updatePeriodLabel();
+    if(txs.length){
+      render();
+      if(name==='reservas'){renderOTAMesBar();renderOTAReport();}
+    }
+  }
 }
 
 // CURRENCY
@@ -1391,28 +1397,15 @@ function renderAll(){
   updatePeriodLabel();
   initInkChips();
   renderLocalTx();
-  // Temporarily make all sections block so render() can update their DOM elements
-  var sections=['resumen','reservas','adelantos','inkahuset','skandean','personal'];
-  var activeSection=null;
-  sections.forEach(function(s){
-    var el=document.getElementById('sec-'+s);
-    if(el){
-      if(el.classList.contains('active')) activeSection=s;
-      el.style.visibility='hidden';
-      el.style.display='block';
-    }
-  });
+  // Make ALL section divs block temporarily so their DOM elements are accessible
+  var allSecs=document.querySelectorAll('.section');
+  allSecs.forEach(function(s){s.style.display='block';});
   render();
   renderOTAMesBar();
   renderOTAReport();
-  // Restore visibility
-  sections.forEach(function(s){
-    var el=document.getElementById('sec-'+s);
-    if(el){
-      el.style.visibility='';
-      if(s===activeSection){el.style.display='block';el.classList.add('active');}
-      else{el.style.display='';el.classList.remove('active');}
-    }
+  // Restore - only active section stays visible
+  allSecs.forEach(function(s){
+    if(!s.classList.contains('active')) s.style.display='';
   });
 }
 
