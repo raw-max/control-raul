@@ -702,12 +702,7 @@ async function syncFromSheets(){
       localStorage.setItem('raw_txs_v7',JSON.stringify(txs));
       localStorage.setItem('raw_last_sync',new Date().toISOString());
       btn.textContent='✓ '+txs.length+' registros';btn.className='sync-btn ok';
-      renderLocalTx();
-      updatePeriodLabel();
-      initInkChips();
-      render();
-      renderOTAMesBar();
-      renderOTAReport();
+      renderAll();
     } else {
       btn.textContent='Sin datos en Sheets';btn.className='sync-btn';
       loadLocal();
@@ -1391,8 +1386,39 @@ function renderOTAReport(){
     +'</div>';
 }
 
+// RENDER ALL SECTIONS
+function renderAll(){
+  updatePeriodLabel();
+  initInkChips();
+  renderLocalTx();
+  // Temporarily make all sections block so render() can update their DOM elements
+  var sections=['resumen','reservas','adelantos','inkahuset','skandean','personal'];
+  var activeSection=null;
+  sections.forEach(function(s){
+    var el=document.getElementById('sec-'+s);
+    if(el){
+      if(el.classList.contains('active')) activeSection=s;
+      el.style.visibility='hidden';
+      el.style.display='block';
+    }
+  });
+  render();
+  renderOTAMesBar();
+  renderOTAReport();
+  // Restore visibility
+  sections.forEach(function(s){
+    var el=document.getElementById('sec-'+s);
+    if(el){
+      el.style.visibility='';
+      if(s===activeSection){el.style.display='block';el.classList.add('active');}
+      else{el.style.display='';el.classList.remove('active');}
+    }
+  });
+}
+
 // RENDER PRINCIPAL
 function render(){
+  if(!txs||!txs.length) return;
   updatePeriodLabel();
   var mes=getPeriodTxs();
   var prev=getPrevPeriodTxs();
