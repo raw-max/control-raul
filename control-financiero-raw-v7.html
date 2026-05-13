@@ -773,7 +773,7 @@ function switchTab(name){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='config')renderConfig();
-  else if(name!=='registrar'){
+  else if(name!=='registrar'&&name!=='config'){
     updatePeriodLabel();
     if(txs.length){
       render();
@@ -1419,21 +1419,27 @@ function renderOTAReport(){
     +'</div>';
 }
 
-// RENDER ALL SECTIONS
+// RENDER ALL - just update local tx list and mark data as ready
 function renderAll(){
   updatePeriodLabel();
   initInkChips();
   renderLocalTx();
-  // Make ALL section divs block temporarily so their DOM elements are accessible
-  var allSecs=document.querySelectorAll('.section');
-  allSecs.forEach(function(s){s.style.display='block';});
-  render();
-  renderOTAMesBar();
-  renderOTAReport();
-  // Restore - only active section stays visible
-  allSecs.forEach(function(s){
-    if(!s.classList.contains('active')) s.style.display='';
-  });
+  // render() will be called when user switches to each tab
+  // But also render the current active tab immediately
+  var activeTab=document.querySelector('.tab.active');
+  if(activeTab){
+    var tabNames=['registrar','resumen','reservas','adelantos','inkahuset','skandean','personal','config'];
+    var tabs=document.querySelectorAll('.tab');
+    var activeIdx=-1;
+    tabs.forEach(function(t,i){if(t===activeTab)activeIdx=i;});
+    if(activeIdx>0&&activeIdx<tabNames.length){
+      var name=tabNames[activeIdx];
+      if(name!=='registrar'&&name!=='config'){
+        render();
+        if(name==='reservas'){renderOTAMesBar();renderOTAReport();}
+      }
+    }
+  }
 }
 
 // RENDER PRINCIPAL
