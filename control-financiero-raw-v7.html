@@ -702,7 +702,12 @@ async function syncFromSheets(){
       localStorage.setItem('raw_txs_v7',JSON.stringify(txs));
       localStorage.setItem('raw_last_sync',new Date().toISOString());
       btn.textContent='✓ '+txs.length+' registros';btn.className='sync-btn ok';
-      renderLocalTx();render();
+      renderLocalTx();
+      updatePeriodLabel();
+      initInkChips();
+      render();
+      renderOTAMesBar();
+      renderOTAReport();
     } else {
       btn.textContent='Sin datos en Sheets';btn.className='sync-btn';
       loadLocal();
@@ -719,7 +724,12 @@ function loadLocal(){
   if(!saved.length) saved=JSON.parse(localStorage.getItem('raw_txs_v3')||'[]');
   if(saved.length) txs=saved;
   renderLocalTx();
-  if(txs.length) render();
+  if(txs.length){
+    updatePeriodLabel();
+    render();
+    renderOTAMesBar();
+    renderOTAReport();
+  }
 }
 function normalizeRow(row){
   return {
